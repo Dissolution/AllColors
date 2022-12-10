@@ -1,71 +1,10 @@
-﻿using System.Buffers;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Numerics;
 
 namespace AllColors;
 
 // represent a coordinate
-public readonly struct XY : IEquatable<XY>,
-                   IEqualityOperators<XY, XY, bool>
-{
-    public static bool operator ==(XY left, XY right) => left.X == right.X && left.Y == right.Y;
-    public static bool operator !=(XY left, XY right) => left.X != right.X || left.Y != right.Y;
-    
-    public readonly int X;
-    public readonly int Y;
-    
-    public XY(int x, int y)
-    {
-        this.X = x;
-        this.Y = y;
-    }
-
-    public bool Equals(XY xy)
-    {
-        return this.X == xy.X && this.Y == xy.Y;
-    }
-    
-    public override bool Equals(object? obj)
-    {
-        return obj is XY xy && this.X == xy.X && this.Y == xy.Y;
-    }
-    
-    public override int GetHashCode()
-    {
-        return HashCode.Combine<int, int>(X, Y);
-    }
-
-    public override string ToString()
-    {
-        return $"({X},{Y})";
-    }
-}
-
-public readonly struct ColorSpace
-{
-    public static readonly ColorSpace Sixteen = new ColorSpace(16, 64, 64);
-    public static readonly ColorSpace TwentyFour = new ColorSpace(24, 128, 108);
-    public static readonly ColorSpace ThirtyTwo = new ColorSpace(32, 256, 128);
-    public static readonly ColorSpace SixtyFour = new ColorSpace(64, 512, 512);
-        
-    public readonly byte Count;
-    public readonly ushort Width;
-    public readonly ushort Height;
-
-    public ushort StartX => (ushort)(Width / 2f);
-    public ushort StartY => (ushort)(Height / 2f);
-
-    private ColorSpace(byte count, ushort width, ushort height)
-    {
-        this.Count = count;
-        this.Width = width;
-        this.Height = height;
-        
-        Debug.Assert(((int)count * (int)count * (int)count) == ((int)height * (int)width));
-    }
-}
 
 public sealed class StackExchangeUpdated
 {
@@ -73,7 +12,7 @@ public sealed class StackExchangeUpdated
     private const bool AVERAGE = false;
 
     // gets the difference between two colors
-    private static int ColorDiff(Color left, Color right)
+    private static int Distance(Color left, Color right)
     {
         var r = left.R - right.R;
         var g = left.G - right.G;
@@ -85,20 +24,20 @@ public sealed class StackExchangeUpdated
     private readonly ColorSpace _colorSpace;
     
     // gets the neighbors (3..8) of the given coordinate
-    private XY[] GetNeighbors(XY xy, bool includeSelf = true)
+    private Coord[] GetNeighbors(Coord coord, bool includeSelf = true)
     {
-        Span<XY> neighbors = stackalloc XY[9];
+        Span<Coord> neighbors = stackalloc Coord[9];
         int n = 0;
         for (var yChange = -1; yChange <= 1; yChange++)
         {
-            int newY = xy.Y + yChange;
+            int newY = coord.Y + yChange;
             if (newY == -1 || newY == _colorSpace.Height) continue;
             for (var xChange = -1; xChange <= 1; xChange++)
             {
-                int newX = xy.X + xChange;
+                int newX = coord.X + xChange;
                 if (newX == -1 || newX == _colorSpace.Width) continue;
-                if (!includeSelf && newX == xy.X && newY == xy.Y) continue;
-                neighbors[n++] = new XY(newX, newY);
+                if (!includeSelf && newX == coord.X && newY == coord.Y) continue;
+                neighbors[n++] = new Coord(newX, newY);
             }
         }
         return neighbors[..n].ToArray();
@@ -131,19 +70,19 @@ public sealed class StackExchangeUpdated
     }
     
     // calculates how well a color fits at the given coordinates
-    private int CalcColorFit(Color[,] pixels, XY xy, Color color)
+    private int CalcColorFit(Color[,] pixels, Coord coord, Color color)
     {
         // get the diffs for each neighbor separately
         Span<int> diffs = stackalloc int[9];
         int d = 0;
-        var xyNeighbors = GetNeighbors(xy);
+        var xyNeighbors = GetNeighbors(coord);
         for (var i = 0; i < xyNeighbors.Length; i++)
         {
-            XY neighborXY = xyNeighbors[i];
-            var neighborColor = pixels[neighborXY.Y, neighborXY.X];
+            Coord neighborCoord = xyNeighbors[i];
+            var neighborColor = pixels[neighborCoord.Y, neighborCoord.X];
             if (!neighborColor.IsEmpty)
             {
-                diffs[d++] = ColorDiff(neighborColor, color);
+                diffs[d++] = Distance(neighborColor, color);
             }
         }
 
@@ -160,6 +99,8 @@ public sealed class StackExchangeUpdated
 
     public void Produce(int? seed, string outputFilePath)
     {
+        var timer = Stopwatch.StartNew();
+
         // create every color once and randomize the order
         Color[] colors = new Color[_colorSpace.Count * _colorSpace.Count * _colorSpace.Count];
         int c = 0;
@@ -193,7 +134,7 @@ public sealed class StackExchangeUpdated
         //Debug.Assert(pixels.Length == colors.Length);
 
         // constantly changing list of available coordinates (empty pixels which have non-empty neighbors)
-        var available = new HashSet<XY>(1000);
+        var available = new HashSet<Coord>(1000);
 
         // calculate the checkpoints in advance
         var checkpoints = Enumerable
@@ -207,20 +148,22 @@ public sealed class StackExchangeUpdated
             
             if (i % 256 == 0)
             {
-                Console.WriteLine("{0:P}, queue size {1}", (double)i / (double)_colorSpace.Width / (double)_colorSpace.Height, available.Count);
+                double progress = (double)i / colors.Length;
+                string message = $"{progress:P} complete: Queue at {available.Count}";
+                Console.WriteLine(message);
             }
 
-            XY bestXY;
+            Coord bestCoord;
             if (available.Count == 0)
             {
                 // use the starting point
-                bestXY = new XY(_colorSpace.StartX, _colorSpace.StartY);
+                bestCoord = new Coord(_colorSpace.StartX, _colorSpace.StartY);
             }
             else
             {
                 // find the best place from the list of available coordinates
                 // uses parallel processing, this is the most expensive step
-                bestXY = available
+                bestCoord = available
                     .AsParallel()
                     .OrderBy(xy => CalcColorFit(pixels, xy, color))
                     .First();
@@ -228,14 +171,14 @@ public sealed class StackExchangeUpdated
 
             // put the pixel where it belongs
             //Debug.Assert(pixels[bestXY.Y, bestXY.X].IsEmpty);
-            pixels[bestXY.Y, bestXY.X] = colors[i];
+            pixels[bestCoord.Y, bestCoord.X] = colors[i];
 
             // adjust the available list
-            available.Remove(bestXY);
-            var bestXYNeighbors = GetNeighbors(bestXY, false);
+            available.Remove(bestCoord);
+            var bestXYNeighbors = GetNeighbors(bestCoord, false);
             for (var b = 0; b < bestXYNeighbors.Length; b++)
             {
-                XY nxy = bestXYNeighbors[b];
+                Coord nxy = bestXYNeighbors[b];
                 if (pixels[nxy.Y, nxy.X].IsEmpty)
                     available.Add(nxy);
             }
@@ -260,6 +203,9 @@ public sealed class StackExchangeUpdated
 
         //Debug.Assert(available.Count == 0);
         
+        timer.Stop();
+        Console.WriteLine($"Completed in {timer.Elapsed:c}");
+
         // Save final
         using (var img = new DirectBitmap(_colorSpace.Width, _colorSpace.Height))
         {
@@ -270,7 +216,11 @@ public sealed class StackExchangeUpdated
                     img.SetPixel(x, y, pixels[y, x]);
                 }
             }
-            img.Bitmap.Save(Path.Combine(outputFilePath, $"Image_Final.bmp"), ImageFormat.Bmp);
+
+            Directory.CreateDirectory(outputFilePath);
+            var filePath = Path.Combine(outputFilePath, $"Image_Final.bmp");
+            img.Bitmap.Save(filePath, ImageFormat.Bmp);
+            Console.WriteLine($"Saved to {filePath}");
         }
     }
 }
