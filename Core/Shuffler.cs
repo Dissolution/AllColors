@@ -1,20 +1,71 @@
-﻿/*
--- To shuffle an array a of n elements (indices 0..n-1):
-for i from n−1 downto 1 do
-     j ← random integer such that 0 ≤ j ≤ i
-     exchange a[j] and a[i]
-     */
-     
-namespace AllColors;
+﻿namespace AllColors;
 
-public static class Shuffler
+public sealed class Shuffler
 {
-    public static void Shuffle<T>(Random random, Span<T> span)
+    private readonly Random _random;
+
+    public Shuffler(int? seed)
     {
-        for (var i = span.Length - 1; i > 0; i--)
+        if (seed is null)
         {
-            int j = random.Next(i + 1);
-            (span[i], span[j]) = (span[j], span[i]);
+            _random = new Random();
         }
+        else
+        {
+            _random = new Random(seed.Value);
+        }
+    }
+
+    public bool Equals()
+    {
+        return _random.Next(2) == 1;
+    }
+
+    public int Compare()
+    {
+        return _random.Next(11) - 5;
+    }
+
+    public int UpTo(int exclusiveMax)
+    {
+        return _random.Next(0, exclusiveMax);
+    }
+
+    public int Flip()
+    {
+        return _random.Next();
+    }
+
+    public void Shuffle<T>(ref T[] array)
+    {
+        for (var i = array.Length - 1; i > 0; i--)
+        {
+            int j = _random.Next(i + 1);
+            (array[i], array[j]) = (array[j], array[i]);
+        }
+    }
+
+    public T[] ShuffleCopy<T>(T[] array)
+    {
+        /* To initialize an array a of n elements to a randomly shuffled copy of source, both 0-based:
+           for i from 0 to n − 1 do
+           j ← random integer such that 0 ≤ j ≤ i
+           if j ≠ i
+           a[i] ← a[j]
+           a[j] ← source[i]
+        */
+
+        int len = array.Length;
+        var copy = new T[len];
+        for (var i = 0; i < len; i++)
+        {
+            int j = _random.Next(i + 1);
+            if (j != i)
+            {
+                copy[i] = copy[j];
+            }
+            copy[j] = array[i];
+        }
+        return copy;
     }
 }

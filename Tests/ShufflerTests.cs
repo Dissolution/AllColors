@@ -16,7 +16,7 @@ public class ShufflerTests
     public void ShuffleCopyWorks()
     {
         var allColors = ARGB.AllRGBs;
-        var shuffler = new Thrice.Shuffler(null);
+        var shuffler = new Shuffler(null);
         var copy = shuffler.ShuffleCopy(allColors);
 
         // Verify the copy still contains every possible color
@@ -41,7 +41,7 @@ public class ShufflerTests
         for (var i = 0; i < Depth; i++)
         {
             // Create a shuffler with no seed
-            var shuffler = new Thrice.Shuffler(null);
+            var shuffler = new Shuffler(null);
 
             var shuffled = shuffler.ShuffleCopy(allColors);
 
@@ -76,7 +76,7 @@ public class ShufflerTests
             for (var d = 0; d < Depth; d++)
             {
                 // Create a shuffler with no seed
-                var shuffler = new Thrice.Shuffler(seed);
+                var shuffler = new Shuffler(seed);
 
                 var shuffled = shuffler.ShuffleCopy(allColors);
 

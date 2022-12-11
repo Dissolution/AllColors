@@ -195,7 +195,7 @@ public sealed class ImageOptions
     public int Width { get; }
     public int Height { get; }
 
-    public Point MidPoint => new Point((int)(Width / 2f), (int)(Height / 2f));
+    public Coord MidPoint => new Coord((int)(Width / 2f), (int)(Height / 2f));
 
     private ImageOptions(int colorCount, int width, int height)
     {

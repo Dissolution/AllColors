@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Drawing;
 using System.Net;
-using System.Runtime.CompilerServices;
 
 namespace AllColors.Thrice;
 
 
 public sealed class ImageCell : IEquatable<ImageCell>
 {
-    public Point Position { get; }
+    public Coord Position { get; }
 
     public ImageCell[] Neighbors { get; internal set; }
 
@@ -16,7 +15,7 @@ public sealed class ImageCell : IEquatable<ImageCell>
 
     public Color? Color { get; set; }
 
-    public ImageCell(Point position)
+    public ImageCell(Coord position)
     {
         this.Position = position;
         this.Color = null;
@@ -53,7 +52,7 @@ public sealed class ImageCell : IEquatable<ImageCell>
     public override string ToString()
     {
         var stringHandler = new DefaultInterpolatedStringHandler();
-        stringHandler.AppendFormatted<Point>(Position);
+        stringHandler.AppendFormatted<Coord>(Position);
         stringHandler.AppendLiteral(": ");
         if (Color.HasValue)
         {

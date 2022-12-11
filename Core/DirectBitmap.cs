@@ -1,7 +1,6 @@
 ﻿using System.Drawing;
 using System.Drawing.Imaging;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance;
 
 namespace AllColors;
 
@@ -11,6 +10,8 @@ public sealed class DirectBitmap : IDisposable
     private GCHandle _allocHandle;
     private Bitmap _bitmap;
 
+    public Span<ARGB> ARGBSpan => _argbAlloc;
+    public Span2D<ARGB> ARGBSpan2d => new(_argbAlloc, Height, Width);
     public Bitmap Bitmap => _bitmap;
     
     public int Width { get; }

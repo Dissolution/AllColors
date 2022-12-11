@@ -17,6 +17,8 @@ public class ARBGTests
         }
     }
 
+
+
     [Fact]
     public void IsCompatibleWithColor()
     {

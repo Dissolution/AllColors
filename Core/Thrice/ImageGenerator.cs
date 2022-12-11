@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Runtime.ExceptionServices;
 
 namespace AllColors.Thrice;
 
@@ -139,7 +140,7 @@ public class ImageGenerator
         }
 
         int maxQueueCount = 0;
-        int consoleLineYPos = Console.CursorTop;
+        //int consoleLineYPos = Console.CursorTop;
 #endif
 
         // Loop through all colors
@@ -155,8 +156,8 @@ public class ImageGenerator
                 int queueCount = available.Count;
                 if (queueCount > maxQueueCount)
                     maxQueueCount = queueCount;
-                Console.CursorTop = consoleLineYPos;
-                Console.WriteLine($"{progress:P1} complete: Queue at {queueCount}");
+                //Console.CursorTop = consoleLineYPos;
+                Debug.WriteLine($"{progress:P1} complete: Queue at {queueCount}");
             }
 #endif
 
@@ -170,12 +171,10 @@ public class ImageGenerator
             }
             else
             {
-                // Find the position that most closely matches what we're placing
                 bestCell = available
                     .AsParallel()
-                    .WithDegreeOfParallelism(Environment.ProcessorCount * 2)
                     .OrderBy(cell => CalculateFit(cell, color))
-                    .ThenBy(_ => shuffler.Flip())
+                    .ThenBy(cell => cell.Position)
                     .First();
             }
 
@@ -201,11 +200,11 @@ public class ImageGenerator
 
         Debug.Assert(available.Count == 0);
 
-        Console.CursorTop = consoleLineYPos;
-        Console.WriteLine($"{1.0d:P1} complete: Queue at {0}");
+        //Console.CursorTop = consoleLineYPos;
+        Debug.WriteLine($"{1.0d:P1} complete: Queue at {0}");
 
         timer.Stop();
-        Console.WriteLine($"Completed in {timer.Elapsed:c}");
+        Debug.WriteLine($"Completed in {timer.Elapsed:c}");
 
         // Build the image
         var img = new DirectBitmap(_width, _height);

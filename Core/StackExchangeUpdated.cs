@@ -24,19 +24,19 @@ public sealed class StackExchangeUpdated
     private readonly ColorSpace _colorSpace;
     
     // gets the neighbors (3..8) of the given coordinate
-    private Coord[] GetNeighbors(Coord coord, bool includeSelf = true)
+    private Coord[] GetNeighbors(Coord first, bool includeSelf = true)
     {
         Span<Coord> neighbors = stackalloc Coord[9];
         int n = 0;
         for (var yChange = -1; yChange <= 1; yChange++)
         {
-            int newY = coord.Y + yChange;
+            int newY = first.Y + yChange;
             if (newY == -1 || newY == _colorSpace.Height) continue;
             for (var xChange = -1; xChange <= 1; xChange++)
             {
-                int newX = coord.X + xChange;
+                int newX = first.X + xChange;
                 if (newX == -1 || newX == _colorSpace.Width) continue;
-                if (!includeSelf && newX == coord.X && newY == coord.Y) continue;
+                if (!includeSelf && newX == first.X && newY == first.Y) continue;
                 neighbors[n++] = new Coord(newX, newY);
             }
         }
@@ -70,16 +70,16 @@ public sealed class StackExchangeUpdated
     }
     
     // calculates how well a color fits at the given coordinates
-    private int CalcColorFit(Color[,] pixels, Coord coord, Color color)
+    private int CalcColorFit(Color[,] pixels, Coord first, Color color)
     {
         // get the diffs for each neighbor separately
         Span<int> diffs = stackalloc int[9];
         int d = 0;
-        var xyNeighbors = GetNeighbors(coord);
+        var xyNeighbors = GetNeighbors(first);
         for (var i = 0; i < xyNeighbors.Length; i++)
         {
-            Coord neighborCoord = xyNeighbors[i];
-            var neighborColor = pixels[neighborCoord.Y, neighborCoord.X];
+            Coord neighborFirst = xyNeighbors[i];
+            var neighborColor = pixels[neighborFirst.Y, neighborFirst.X];
             if (!neighborColor.IsEmpty)
             {
                 diffs[d++] = Distance(neighborColor, color);
@@ -153,17 +153,17 @@ public sealed class StackExchangeUpdated
                 Console.WriteLine(message);
             }
 
-            Coord bestCoord;
+            Coord bestFirst;
             if (available.Count == 0)
             {
                 // use the starting point
-                bestCoord = new Coord(_colorSpace.StartX, _colorSpace.StartY);
+                bestFirst = new Coord(_colorSpace.StartX, _colorSpace.StartY);
             }
             else
             {
                 // find the best place from the list of available coordinates
                 // uses parallel processing, this is the most expensive step
-                bestCoord = available
+                bestFirst = available
                     .AsParallel()
                     .OrderBy(xy => CalcColorFit(pixels, xy, color))
                     .First();
@@ -171,11 +171,11 @@ public sealed class StackExchangeUpdated
 
             // put the pixel where it belongs
             //Debug.Assert(pixels[bestXY.Y, bestXY.X].IsEmpty);
-            pixels[bestCoord.Y, bestCoord.X] = colors[i];
+            pixels[bestFirst.Y, bestFirst.X] = colors[i];
 
             // adjust the available list
-            available.Remove(bestCoord);
-            var bestXYNeighbors = GetNeighbors(bestCoord, false);
+            available.Remove(bestFirst);
+            var bestXYNeighbors = GetNeighbors(bestFirst, false);
             for (var b = 0; b < bestXYNeighbors.Length; b++)
             {
                 Coord nxy = bestXYNeighbors[b];

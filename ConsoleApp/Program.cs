@@ -4,7 +4,10 @@ using AllColors.Thrice;
 
 // 1080 x 2340 is Pixel4a
 
-ImageOptions options = ImageOptions.BestRectangle(32);
+
+
+
+ImageOptions options = ImageOptions.BestRectangle(24);
 
 ImageGenerator generator = new ImageGenerator(options);
 int? seed = 147;

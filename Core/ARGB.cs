@@ -1,8 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Drawing;
-using System.Numerics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 
 namespace AllColors;
 
@@ -46,6 +43,28 @@ public readonly struct ARGB : IEquatable<ARGB>,
         AllRGBs = colors;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void MinMaxRgb(out int min, out int max, int red, int green, int blue)
+    {
+        if (red > green)
+        {
+            max = red;
+            min = green;
+        }
+        else
+        {
+            max = green;
+            min = red;
+        }
+        if (blue > max)
+        {
+            max = blue;
+        }
+        else if (blue < min)
+        {
+            min = blue;
+        }
+    }
 
     [FieldOffset(0)]
     internal readonly uint Value;
@@ -78,6 +97,59 @@ public readonly struct ARGB : IEquatable<ARGB>,
     public ARGB(Color color)
     {
         Value = (uint)color.ToArgb();
+    }
+
+
+
+    public float GetBrightness()
+    {
+        MinMaxRgb(out int min, out int max, Red, Green, Blue);
+        return (max + min) / (byte.MaxValue * 2.0f);
+    }
+
+    public float GetHue()
+    {
+        int r = Red;
+        int g = Green;
+        int b = Blue;
+
+        if (r == g && g == b) return 0.0f;
+
+        MinMaxRgb(out int min, out int max, r, g, b);
+
+        float delta = max - min;
+        float hue;
+
+        if (r == max)
+            hue = (g - b) / delta;
+        else if (g == max)
+            hue = (b - r) / delta + 2.0f;
+        else
+            hue = (r - g) / delta + 4.0f;
+
+        hue *= 60.0f;
+        if (hue < 0.0f)
+            hue += 360.0f;
+
+        return hue;
+    }
+
+    public float GetSaturation()
+    {
+        int r = Red;
+        int g = Green;
+        int b = Blue;
+
+        if (r == g && g == b)
+            return 0f;
+
+        MinMaxRgb(out int min, out int max, r, g, b);
+
+        int div = max + min;
+        if (div > byte.MaxValue)
+            div = (byte.MaxValue * 2) - max - min;
+
+        return (max - min) / (float)div;
     }
 
     public Color ToColor()
@@ -140,7 +212,7 @@ public sealed class ARGBComparer :
     public int GetHashCode(ReadOnlySpan<ARGB> colors)
     {
         var hasher = new HashCode();
-        hasher.AddBytes(MemoryMarshal.Cast<ARGB, byte>(colors));
+        hasher.AddBytes(MemoryMarshal.AsBytes<ARGB>(colors));
         return hasher.ToHashCode();
     }
 
@@ -149,7 +221,7 @@ public sealed class ARGBComparer :
     {
         if (colors is null) return 0;
         var hasher = new HashCode();
-        hasher.AddBytes(MemoryMarshal.Cast<ARGB, byte>(colors));
+        hasher.AddBytes(MemoryMarshal.AsBytes<ARGB>(colors));
         return hasher.ToHashCode();
     }
 }

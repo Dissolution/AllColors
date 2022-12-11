@@ -1,5 +1,4 @@
 ﻿using System.Drawing;
-using System.Runtime.CompilerServices;
 
 namespace AllColors.Thrice;
 
@@ -18,12 +17,12 @@ public sealed class ImageGrid
         }
     }
 
-    public ImageCell this[Point point]
+    public ImageCell this[Coord pos]
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
-            return _imageCells[point.X, point.Y];
+            return _imageCells[pos.X, pos.Y];
         }
     }
 
