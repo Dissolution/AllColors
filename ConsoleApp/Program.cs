@@ -2,40 +2,25 @@
 using System.Drawing.Imaging;
 using AllColors.Thrice;
 
-// 1080 x 2340
-ImageOptions options = ImageOptions.BestColors(1080, 2340);
+// 1080 x 2340 is Pixel4a
 
-Debugger.Break();
+ImageOptions options = ImageOptions.BestRectangle(32);
 
+ImageGenerator generator = new ImageGenerator(options);
+int? seed = 147;
+var directBitmap = generator.Generate(seed);
 
+string imagePath = $@"c:\temp\image_{options.ColorCount}_{options.Width}_{options.Height}_{seed}.bmp";
 
-ImageGenerator generator = new ImageGenerator(options, 147);
-using var image = generator.Generate();
-
-string imagePath = @"c:\temp\image.bmp";
-
-image.Bitmap.Save(imagePath, ImageFormat.Bmp);
+directBitmap.Bitmap.Save(imagePath, ImageFormat.Bmp);
 
 Process.Start(new ProcessStartInfo()
 {
-    FileName = Directory.GetParent(imagePath)!.FullName,
+    FileName = imagePath,
     UseShellExecute = true
 });
 
-//
-// foreach (var color in typeof(Color).GetProperties(BindingFlags.Public | BindingFlags.Static)
-//     .Where(prop => prop.PropertyType == typeof(Color))
-//     .Select(prop => prop.GetValue(null))
-//     .OfType<Color>())
-// {
-//     int colorInt = color.ToArgb();
-//     ARGB colorARGB = new ARGB(color);
-//     int argbInt = colorARGB.GetHashCode();
-//     Debug.Assert(colorInt == argbInt);
-//     Debug.Assert(colorARGB.Alpha == color.A);
-//     Debug.Assert(colorARGB.Red == color.R);
-//     Debug.Assert(colorARGB.Green == color.G);
-//     Debug.Assert(colorARGB.Blue == color.B);
-// }
+
+directBitmap.Dispose();
 
 Debugger.Break();

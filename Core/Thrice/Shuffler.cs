@@ -16,6 +16,11 @@ public sealed class Shuffler
         }
     }
 
+    public int Flip()
+    {
+        return _random.Next();
+    }
+
     public void Shuffle<T>(ref T[] array)
     {
         for (var i = array.Length - 1; i > 0; i--)

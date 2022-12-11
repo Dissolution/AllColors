@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Drawing;
 
 namespace AllColors.Thrice;
@@ -49,7 +50,7 @@ public class ImageGenerator
         return (r * r) + (g * g) + (b * b);
     }
 
-    private static int CalculateFit(ImageCell imageCell, Color color)
+    /*private static int CalculateFit(ImageCell imageCell, Color color)
     {
         Span<int> distances = stackalloc int[9];
         int d = 0;
@@ -76,34 +77,47 @@ public class ImageGenerator
         } while (d > 0);
 
         return min;
+    }*/
+
+    private static int CalculateFit(ImageCell imageCell, Color color)
+    {
+        int fit = int.MaxValue;
+        var neighbors = imageCell.Neighbors;
+        for (var i = neighbors.Length - 1; i >= 0; i--)
+        {
+            var neighbor = neighbors[i];
+            if (neighbor.HasColor(out var nColor))
+            {
+                var dist = Distance(color, nColor);
+                if (dist < fit) fit = dist;
+            }
+        }
+        return fit;
     }
 
 
     private readonly ImageGrid _imageGrid;
     private readonly ImageOptions _imageOptions;
-    private readonly Shuffler _shuffler;
-
     private readonly Color[] _colors;
-
     private readonly int _width;
     private readonly int _height;
 
-    public ImageGenerator(ImageOptions options, int? seed = null)
+    public ImageGenerator(ImageOptions options)
     {
         _width = options.Width;
         _height = options.Height;
         _imageGrid = new ImageGrid(_width, _height);
         _imageOptions = options;
-        _shuffler = new Shuffler(seed);
         _colors = CreateColors(options);
     }
 
-    public DirectBitmap Generate()
+    public DirectBitmap Generate(int? seed = null)
     {
         var timer = Stopwatch.StartNew();
 
         // Get a shuffled set of colors
-        var colors = _shuffler.ShuffleCopy(_colors);
+        var shuffler = new Shuffler(seed);
+        var colors = shuffler.ShuffleCopy(_colors);
         var colorsCount = colors.Length;
 
         // Fresh grid
@@ -112,6 +126,22 @@ public class ImageGenerator
         // Our Coordinates that are available to be filled
         var available = new HashSet<ImageCell>((_width + _height) * 2);
 
+#if DEBUG
+
+        // We need a double for percentage completion
+        double dCount = (double)colorsCount;
+
+        // We report every 1/10th of 1%
+        var report = (int)Math.Floor(dCount * 0.001d);
+        if (report < 512)
+        {
+            report = (int)Math.Floor(dCount * 0.01d);
+        }
+
+        int maxQueueCount = 0;
+        int consoleLineYPos = Console.CursorTop;
+#endif
+
         // Loop through all colors
         for (var c = 0; c < colorsCount; c++)
         {
@@ -119,11 +149,14 @@ public class ImageGenerator
 
 #if DEBUG
             // Report every 256 colors
-            if (c % 256 == 0)
+            if (c % report == 0)
             {
-                double progress = (double)c / colorsCount;
-                string message = $"{progress:P1} complete: Queue at {available.Count}";
-                Console.WriteLine(message);
+                double progress = c / dCount;
+                int queueCount = available.Count;
+                if (queueCount > maxQueueCount)
+                    maxQueueCount = queueCount;
+                Console.CursorTop = consoleLineYPos;
+                Console.WriteLine($"{progress:P1} complete: Queue at {queueCount}");
             }
 #endif
 
@@ -140,7 +173,9 @@ public class ImageGenerator
                 // Find the position that most closely matches what we're placing
                 bestCell = available
                     .AsParallel()
+                    .WithDegreeOfParallelism(Environment.ProcessorCount * 2)
                     .OrderBy(cell => CalculateFit(cell, color))
+                    .ThenBy(_ => shuffler.Flip())
                     .First();
             }
 
@@ -165,6 +200,9 @@ public class ImageGenerator
         }
 
         Debug.Assert(available.Count == 0);
+
+        Console.CursorTop = consoleLineYPos;
+        Console.WriteLine($"{1.0d:P1} complete: Queue at {0}");
 
         timer.Stop();
         Console.WriteLine($"Completed in {timer.Elapsed:c}");
