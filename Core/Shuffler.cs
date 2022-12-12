@@ -26,6 +26,8 @@ public sealed class Shuffler
         return _random.Next(11) - 5;
     }
 
+    public int Next() => _random.Next();
+
     public int UpTo(int exclusiveMax)
     {
         return _random.Next(0, exclusiveMax);
@@ -36,7 +38,7 @@ public sealed class Shuffler
         return _random.Next();
     }
 
-    public void Shuffle<T>(ref T[] array)
+    public void Shuffle<T>(Span<T> array)
     {
         for (var i = array.Length - 1; i > 0; i--)
         {
@@ -45,7 +47,7 @@ public sealed class Shuffler
         }
     }
 
-    public T[] ShuffleCopy<T>(T[] array)
+    public T[] ShuffleCopy<T>(ReadOnlySpan<T> span)
     {
         /* To initialize an array a of n elements to a randomly shuffled copy of source, both 0-based:
            for i from 0 to n − 1 do
@@ -55,7 +57,7 @@ public sealed class Shuffler
            a[j] ← source[i]
         */
 
-        int len = array.Length;
+        int len = span.Length;
         var copy = new T[len];
         for (var i = 0; i < len; i++)
         {
@@ -64,7 +66,7 @@ public sealed class Shuffler
             {
                 copy[i] = copy[j];
             }
-            copy[j] = array[i];
+            copy[j] = span[i];
         }
         return copy;
     }

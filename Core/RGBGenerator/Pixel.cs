@@ -1,5 +1,3 @@
-using FejesJoco.Tools.RGBGenerator;
-
 namespace AllColors.RGBGenerator
 {
 	/// <summary>

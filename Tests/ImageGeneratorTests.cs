@@ -13,7 +13,7 @@ public class ImageGeneratorTests
     [Fact]
     public void OutputIsConsistent()
     {
-        var options = ImageOptions.BestRectangle(16);
+        var options = ColorSpace.BestRectangle(16);
         int seed = 147;
 
         int hash = 0;

@@ -39,13 +39,13 @@ public sealed class DirectBitmap : IDisposable
             _allocHandle.AddrOfPinnedObject());
     }
 
-    public void SetPixel(int x, int y, Color color)
+    public void SetPixel(int x, int y, ARGB color)
     {
         int index = x + (y * Width);
         _argbAlloc[index] = color;
     }
 
-    public Color GetPixel(int x, int y)
+    public ARGB GetPixel(int x, int y)
     {
         int index = x + (y * Width);
         return _argbAlloc[index];

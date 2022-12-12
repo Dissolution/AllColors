@@ -1,6 +1,4 @@
-﻿using System.Drawing;
-
-namespace AllColors.Thrice;
+﻿namespace AllColors.Thrice;
 
 public sealed class ImageGrid
 {
@@ -77,7 +75,7 @@ public sealed class ImageGrid
         for (var y = 0; y < _height; y++)
         for (var x = 0; x < _width; x++)
         {
-            cells[x, y].Color = null;
+            cells[x, y].ClearColor();
         }
     }
 }

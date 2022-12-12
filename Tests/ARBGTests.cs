@@ -9,7 +9,7 @@ public class ARBGTests
     [Fact]
     public void ARGB_AllRGBs_Works()
     {
-        var allColors = ARGB.AllRGBs;
+        var allColors = ColorSpace.AllColors();
         var set = new HashSet<ARGB>();
         foreach (var color in allColors)
         {

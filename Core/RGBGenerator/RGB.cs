@@ -1,8 +1,6 @@
-using System;
 using System.Drawing;
-using System.Drawing.Imaging;
 
-namespace FejesJoco.Tools.RGBGenerator
+namespace AllColors.RGBGenerator
 {
 	/// <summary>
 	/// Represents an 8-bit RGB color. Faster and smaller than the framework version, <see cref="Color"/>.

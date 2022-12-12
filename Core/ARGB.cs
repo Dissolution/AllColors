@@ -23,26 +23,6 @@ public readonly struct ARGB : IEquatable<ARGB>,
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator !=(ARGB left, ARGB right) => left.Value != right.Value;
 
-    public static ARGB[] AllRGBs { get; }
-
-    static ARGB()
-    {
-        const int count = 256 * 256 * 256;
-        ARGB[] colors = new ARGB[count];
-        int c = 0;
-
-        for (var r = 0; r < 256; r++)
-        for (var g = 0; g < 256; g++)
-        for (var b = 0; b < 256; b++)
-        {
-            colors[c++] = new ARGB(0, (byte)r, (byte)g, (byte)b);
-        }
-
-        Debug.Assert(c == count);
-
-        AllRGBs = colors;
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void MinMaxRgb(out int min, out int max, int red, int green, int blue)
     {
@@ -99,7 +79,13 @@ public readonly struct ARGB : IEquatable<ARGB>,
         Value = (uint)color.ToArgb();
     }
 
-
+    public ARGB(int red, int green, int blue)
+    {
+        Blue = (byte)blue;
+        Green = (byte)green;
+        Red = (byte)red;
+        Alpha = default;
+    }
 
     public float GetBrightness()
     {
@@ -155,6 +141,15 @@ public readonly struct ARGB : IEquatable<ARGB>,
     public Color ToColor()
     {
         return Color.FromArgb(Alpha, Red, Green, Blue);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int Difference(ARGB color)
+    {
+        int rd = Red - color.Red;
+        int gd = Green - color.Green;
+        int bd = Blue - color.Blue;
+        return (rd * rd) + (gd * gd) + (bd * bd);
     }
 
     public bool Equals(ARGB argb)

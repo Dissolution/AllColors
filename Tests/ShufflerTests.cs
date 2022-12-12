@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
-using FluentAssertions;
+﻿using FluentAssertions;
 
 namespace AllColors.Tests;
 
@@ -15,9 +9,9 @@ public class ShufflerTests
     [Fact]
     public void ShuffleCopyWorks()
     {
-        var allColors = ARGB.AllRGBs;
+        var allColors = ColorSpace.AllColors();
         var shuffler = new Shuffler(null);
-        var copy = shuffler.ShuffleCopy(allColors);
+        var copy = shuffler.ShuffleCopy<ARGB>(allColors);
 
         // Verify the copy still contains every possible color
         var set = new HashSet<ARGB>();
@@ -34,7 +28,7 @@ public class ShufflerTests
     [Fact]
     public void ShufflerCanBeInconsistent()
     {
-        var allColors = ARGB.AllRGBs;
+        var allColors = ColorSpace.AllColors();
 
         HashSet<ARGB[]> colorSequences = new(ARGBComparer.Instance);
 
@@ -43,7 +37,7 @@ public class ShufflerTests
             // Create a shuffler with no seed
             var shuffler = new Shuffler(null);
 
-            var shuffled = shuffler.ShuffleCopy(allColors);
+            var shuffled = shuffler.ShuffleCopy<ARGB>(allColors);
 
             // Verify it is different
             ARGBComparer.Instance
@@ -67,7 +61,7 @@ public class ShufflerTests
             int.MaxValue,
         };
 
-        var allColors = ARGB.AllRGBs;
+        var allColors = ColorSpace.AllColors();
 
         foreach (int seed in seeds)
         {
@@ -78,7 +72,7 @@ public class ShufflerTests
                 // Create a shuffler with no seed
                 var shuffler = new Shuffler(seed);
 
-                var shuffled = shuffler.ShuffleCopy(allColors);
+                var shuffled = shuffler.ShuffleCopy<ARGB>(allColors);
 
                 // Verify it is different
                 ARGBComparer.Instance

@@ -1,24 +1,22 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Drawing;
-using System.Runtime.ExceptionServices;
 
 namespace AllColors.Thrice;
 
 public class ImageGenerator
 {
-    private static Color[] CreateColors(ImageOptions options)
+    private static ARGB[] CreateColors(ColorSpace options)
     {
         // ColorCount is the number of each different R, G, and B values we will use
         // Example:
         // 16 => 16*16*16 = 4096 = 64x64
         // 32 => 32*32*32 = ? = 256*128
-        int colorCount = options.ColorCount;
+        int colorCount = options.ColorDepth;
 
         // ColorCount each of R, G, and B
         var count = colorCount * colorCount * colorCount;
 
-        Color[] colors = new Color[count];
+        ARGB[] colors = new ARGB[count];
         int c = 0;
 
         // We have a number of colors to generate, which gives us a divisor
@@ -29,11 +27,10 @@ public class ImageGenerator
         for (var g = 0; g < colorCount; g++)
         for (var b = 0; b < colorCount; b++)
         {
-            var color = Color.FromArgb(
+            var color = new ARGB(
                 r * 255 / divisor,
                 g * 255 / divisor,
-                b * 255 / divisor
-            );
+                b * 255 / divisor);
             colors[c++] = color;
         }
 
@@ -43,42 +40,14 @@ public class ImageGenerator
     }
 
     // gets the difference between two colors
-    private static int Distance(Color left, Color right)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int Distance(ARGB left, ARGB right)
     {
-        var r = left.R - right.R;
-        var g = left.G - right.G;
-        var b = left.B - right.B;
+        var r = left.Red - right.Red;
+        var g = left.Green - right.Green;
+        var b = left.Blue - right.Blue;
         return (r * r) + (g * g) + (b * b);
     }
-
-    /*private static int CalculateFit(ImageCell imageCell, Color color)
-    {
-        Span<int> distances = stackalloc int[9];
-        int d = 0;
-
-        var neighbors = imageCell.Neighbors;
-        for (var i = neighbors.Length - 1; i >= 0; i--)
-        {
-            var neighbor = neighbors[i];
-            if (neighbor.HasColor(out var nColor))
-            {
-                distances[d++] = Distance(color, nColor);
-            }
-        }
-
-        // Closest
-        // Todo: Average!?!?!
-
-        int min = int.MaxValue;
-        do
-        {
-            d--;
-            min = Math.Min(min, distances[d]);
-
-        } while (d > 0);
-
-        return min;
-    }*/
 
     private static int CalculateFit(ImageCell imageCell, Color color)
     {
@@ -87,9 +56,9 @@ public class ImageGenerator
         for (var i = neighbors.Length - 1; i >= 0; i--)
         {
             var neighbor = neighbors[i];
-            if (neighbor.HasColor(out var nColor))
+            if (!neighbor.IsEmpty)
             {
-                var dist = Distance(color, nColor);
+                var dist = Distance(color, neighbor.Color);
                 if (dist < fit) fit = dist;
             }
         }
@@ -98,17 +67,17 @@ public class ImageGenerator
 
 
     private readonly ImageGrid _imageGrid;
-    private readonly ImageOptions _imageOptions;
-    private readonly Color[] _colors;
+    private readonly ColorSpace _colorSpace;
+    private readonly ARGB[] _colors;
     private readonly int _width;
     private readonly int _height;
 
-    public ImageGenerator(ImageOptions options)
+    public ImageGenerator(ColorSpace options)
     {
         _width = options.Width;
         _height = options.Height;
         _imageGrid = new ImageGrid(_width, _height);
-        _imageOptions = options;
+        _colorSpace = options;
         _colors = CreateColors(options);
     }
 
@@ -118,7 +87,7 @@ public class ImageGenerator
 
         // Get a shuffled set of colors
         var shuffler = new Shuffler(seed);
-        var colors = shuffler.ShuffleCopy(_colors);
+        var colors = shuffler.ShuffleCopy<ARGB>(_colors);
         var colorsCount = colors.Length;
 
         // Fresh grid
@@ -166,7 +135,7 @@ public class ImageGenerator
             // The very first pixel we place in the middle
             if (available.Count == 0)
             {
-                var midPoint = _imageOptions.MidPoint;
+                var midPoint = _colorSpace.MidPoint;
                 bestCell = _imageGrid[midPoint];
             }
             else
@@ -181,7 +150,7 @@ public class ImageGenerator
             Debug.Assert(bestCell.IsEmpty);
 
             // Set that cell's color
-            bestCell.Color = color;
+            bestCell.SetColor(color);
 
             // Remove that cell from available
             available.Remove(bestCell); // Okay if this is false
@@ -214,9 +183,8 @@ public class ImageGenerator
             for (var x = 0; x < _width; x++)
             {
                 var cell = _imageGrid[x, y];
-                if (cell.IsEmpty)
-                    throw new InvalidOperationException();
-                img.SetPixel(x, y, cell.Color!.Value);
+                Debug.Assert(!cell.IsEmpty);
+                img.SetPixel(x, y, cell.Color);
             }
         }
 

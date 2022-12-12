@@ -2,7 +2,7 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 
-namespace AllColors;
+namespace AllColors.SE;
 
 public class StackExchangeProgram
 {
@@ -30,7 +30,7 @@ public class StackExchangeProgram
         public override bool Equals(object obj)
         {
             var that = (XY)obj;
-            return this.x == that.x && this.y == that.y;
+            return x == that.x && y == that.y;
         }
     }
 
@@ -85,9 +85,9 @@ public class StackExchangeProgram
         // create every color once and randomize the order
         var colors = new List<Color>();
         for (var r = 0; r < NUMCOLORS; r++)
-        for (var g = 0; g < NUMCOLORS; g++)
-        for (var b = 0; b < NUMCOLORS; b++)
-            colors.Add(Color.FromArgb(r * 255 / (NUMCOLORS - 1), g * 255 / (NUMCOLORS - 1), b * 255 / (NUMCOLORS - 1)));
+            for (var g = 0; g < NUMCOLORS; g++)
+                for (var b = 0; b < NUMCOLORS; b++)
+                    colors.Add(Color.FromArgb(r * 255 / (NUMCOLORS - 1), g * 255 / (NUMCOLORS - 1), b * 255 / (NUMCOLORS - 1)));
         var rnd = new Random();
         colors.Sort(new Comparison<Color>((c1, c2) => rnd.Next(3) - 1));
 

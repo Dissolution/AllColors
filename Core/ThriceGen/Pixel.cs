@@ -19,11 +19,11 @@ public class Pixel
     //public int indexInBlock;
 
 
-    public RGB avg;
+    public ARGB avg;
     /// <summary>
     /// Color of this pixel.
     /// </summary>
-    public RGB Color;
+    public ARGB Color;
 
     /// <summary>
     /// Index of this pixel in the queue (<see cref="PixelList"/>), or -1 if it's not queued.

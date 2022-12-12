@@ -1,39 +1,53 @@
-﻿using System;
-using System.Drawing;
-using System.Net;
+﻿namespace AllColors.Thrice;
 
-namespace AllColors.Thrice;
-
-
-public sealed class ImageCell : IEquatable<ImageCell>
+public sealed class ImageCell : IEquatable<ImageCell>,
+    IEqualityOperators<ImageCell, ImageCell, bool>
 {
+    public static bool operator ==(ImageCell? left, ImageCell? right)
+    {
+        if (ReferenceEquals(left, right)) return true;
+        if (left is null || right is null) return false;
+        return left.Position == right.Position;
+    }
+
+    public static bool operator !=(ImageCell? left, ImageCell? right)
+    {
+        if (ReferenceEquals(left, right)) return false;
+        if (left is null || right is null) return true;
+        return left.Position != right.Position;
+    }
+
     public Coord Position { get; }
+    
+    public int QueueIndex { get; set; }
+
+    public bool IsEmpty { get; private set; }
+
+    public ARGB Color { get; private set; }
 
     public ImageCell[] Neighbors { get; internal set; }
-
-    public bool IsEmpty => !Color.HasValue;
-
-    public Color? Color { get; set; }
 
     public ImageCell(Coord position)
     {
         this.Position = position;
-        this.Color = null;
+        this.QueueIndex = -1;
+        this.IsEmpty = true;
+        this.Color = default;
         this.Neighbors = Array.Empty<ImageCell>();
     }
 
-    public bool HasColor(out Color color)
+    public void SetColor(ARGB color)
     {
-        if (Color.HasValue)
-        {
-            color = Color.Value;
-            return true;
-        }
-
-        color = default;
-        return false;
+        this.Color = color;
+        this.IsEmpty = false;
     }
 
+    public void ClearColor()
+    {
+        this.Color = default;
+        this.IsEmpty = true;
+    }
+    
     public bool Equals(ImageCell? imageCell)
     {
         return imageCell is not null && imageCell.Position == this.Position;
@@ -51,32 +65,9 @@ public sealed class ImageCell : IEquatable<ImageCell>
 
     public override string ToString()
     {
-        var stringHandler = new DefaultInterpolatedStringHandler();
-        stringHandler.AppendFormatted<Coord>(Position);
-        stringHandler.AppendLiteral(": ");
-        if (Color.HasValue)
-        {
-            var color = Color.Value;
-
-            stringHandler.AppendFormatted<byte>(color.R);
-            stringHandler.AppendLiteral(",");
-            stringHandler.AppendFormatted<byte>(color.G);
-            stringHandler.AppendLiteral(",");
-            stringHandler.AppendFormatted<byte>(color.B);
-
-            if (color.IsKnownColor)
-            {
-                stringHandler.AppendLiteral(" (");
-                stringHandler.AppendFormatted<KnownColor>(color.ToKnownColor());
-                stringHandler.AppendLiteral(")");
-            }
-        }
-        else
-        {
-            stringHandler.AppendLiteral("Empty");
-        }
-
-        return stringHandler.ToStringAndClear();
+        if (IsEmpty)
+            return $"{Position}: [EMPTY]";
+        return $"{Position}: {Color}";
     }
 }
 

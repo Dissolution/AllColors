@@ -2,7 +2,7 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 
-namespace AllColors;
+namespace AllColors.SE;
 
 // represent a coordinate
 
@@ -17,12 +17,12 @@ public sealed class StackExchangeUpdated
         var r = left.R - right.R;
         var g = left.G - right.G;
         var b = left.B - right.B;
-        return (r * r) + (g * g) + (b * b);
+        return r * r + g * g + b * b;
     }
 
-    
+
     private readonly ColorSpace _colorSpace;
-    
+
     // gets the neighbors (3..8) of the given coordinate
     private Coord[] GetNeighbors(Coord first, bool includeSelf = true)
     {
@@ -50,9 +50,9 @@ public sealed class StackExchangeUpdated
         {
             total += diffs[i];
         }
-        return (int)((double)total / (double)diffs.Length);
+        return (int)(total / (double)diffs.Length);
     }
-    
+
     private static int Min(ReadOnlySpan<int> diffs)
     {
         int min = int.MaxValue;
@@ -68,7 +68,7 @@ public sealed class StackExchangeUpdated
     {
         _colorSpace = colorSpace;
     }
-    
+
     // calculates how well a color fits at the given coordinates
     private int CalcColorFit(Color[,] pixels, Coord first, Color color)
     {
@@ -102,32 +102,32 @@ public sealed class StackExchangeUpdated
         var timer = Stopwatch.StartNew();
 
         // create every color once and randomize the order
-        Color[] colors = new Color[_colorSpace.Count * _colorSpace.Count * _colorSpace.Count];
+        ARGB[] colors = new ARGB[_colorSpace.ColorDepth * _colorSpace.ColorDepth * _colorSpace.ColorDepth];
         int c = 0;
-        
-        for (var r = 0; r < _colorSpace.Count; r++)
-        for (var g = 0; g < _colorSpace.Count; g++)
-        for (var b = 0; b < _colorSpace.Count; b++)
-        {
-            var color = Color.FromArgb(
-                (r * 255) / (_colorSpace.Count - 1), 
-                (g * 255) / (_colorSpace.Count - 1), 
-                (b * 255) / (_colorSpace.Count - 1)
-                );
-            colors[c++] = color;
-        }
 
-        Random random;
+        for (var r = 0; r < _colorSpace.ColorDepth; r++)
+            for (var g = 0; g < _colorSpace.ColorDepth; g++)
+                for (var b = 0; b < _colorSpace.ColorDepth; b++)
+                {
+                    var color = new ARGB(
+                        r * 255 / (_colorSpace.ColorDepth - 1),
+                        g * 255 / (_colorSpace.ColorDepth - 1),
+                        b * 255 / (_colorSpace.ColorDepth - 1)
+                        );
+                    colors[c++] = color;
+                }
+
+        Shuffler shuffler;
         if (seed.HasValue)
         {
-            random = new Random(seed.Value);
+            shuffler = new(seed.Value);
         }
         else
         {
-            random = new Random();
+            shuffler = new(null);
         }
         // Shuffle the colors
-        Shuffler.Shuffle<Color>(random, colors);
+        shuffler.Shuffle<ARGB>(colors);
 
         // temporary place where we work (faster than all that many GetPixel calls)
         var pixels = new Color[_colorSpace.Height, _colorSpace.Width];
@@ -139,13 +139,13 @@ public sealed class StackExchangeUpdated
         // calculate the checkpoints in advance
         var checkpoints = Enumerable
             .Range(1, 10)
-            .ToDictionary(i => ((i * colors.Length) / 10) - 1, static i => i - 1);
+            .ToDictionary(i => i * colors.Length / 10 - 1, static i => i - 1);
 
         // loop through all colors that we want to place
         for (var i = 0; i < colors.Length; i++)
         {
             Color color = colors[i];
-            
+
             if (i % 256 == 0)
             {
                 double progress = (double)i / colors.Length;
@@ -157,7 +157,7 @@ public sealed class StackExchangeUpdated
             if (available.Count == 0)
             {
                 // use the starting point
-                bestFirst = new Coord(_colorSpace.StartX, _colorSpace.StartY);
+                bestFirst = _colorSpace.MidPoint;
             }
             else
             {
@@ -202,7 +202,7 @@ public sealed class StackExchangeUpdated
         }
 
         //Debug.Assert(available.Count == 0);
-        
+
         timer.Stop();
         Console.WriteLine($"Completed in {timer.Elapsed:c}");
 
