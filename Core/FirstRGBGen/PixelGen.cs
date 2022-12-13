@@ -178,11 +178,11 @@ public sealed class PixelGenOptions
 
         if (args[9] == "one")
             algorithm = new OneNeighborSqAlgorithm(imagePixels, (startY * width) + startX, bias);
-        /*else if (args[9] == "avg")
-            _algorithm = new AverageNeighborAlgorithm(imagePixels, _startY * _width + _startX);
+        else if (args[9] == "avg")
+            algorithm = new AverageNeighborAlgorithm(imagePixels, (startY * width) + startX);
         else if (args[9] == "avgsq")
-            _algorithm = new AverageNeighborSqAlgorithm(imagePixels, _startY * _width + _startX);
-        */
+            algorithm = new AverageNeighborSqAlgorithm(imagePixels, (startY * width) + startX);
+        
         else
         {
             Console.WriteLine("[algo] is not one of the allowed values");

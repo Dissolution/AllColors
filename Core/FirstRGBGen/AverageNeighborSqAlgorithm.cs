@@ -1,4 +1,4 @@
-﻿/*using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 
 namespace AllColors.FirstRGBGen;
 
@@ -27,7 +27,7 @@ public class AverageNeighborSqAlgorithm : AlgorithmBase
         public int Num;
     }
 
-    private PixelQueue<AvgInfo> _queue = new PixelQueue<AvgInfo>();
+    private readonly PixelQueue<AvgInfo> _queue = new PixelQueue<AvgInfo>();
 
     public override PixelQueue Queue
     {
@@ -42,7 +42,7 @@ public class AverageNeighborSqAlgorithm : AlgorithmBase
     {
         // find the best pixel with parallel processing
         var q = _queue.Pixels;
-        var best = Partitioner.Create(0, _queue.UsedUntil, Math.Max(256, _queue.UsedUntil / Program2.Threads))
+        var best = Partitioner.Create(0, _queue.EndLength, Math.Max(256, _queue.EndLength / Environment.ProcessorCount))
             .AsParallel()
             .Min(range =>
             {
@@ -51,9 +51,9 @@ public class AverageNeighborSqAlgorithm : AlgorithmBase
                 for (var i = range.Item1; i < range.Item2; i++)
                 {
                     var qp = q[i];
-                    if (qp.HasValue)
+                    if (qp is not null)
                     {
-                        var avg = _queue.Data[qp.Value.QueueIndex];
+                        var avg = _queue.Data[qp.QueueIndex];
                         var cr = (int)c.Red;
                         var cg = (int)c.Green;
                         var cb = (int)c.Blue;
@@ -62,23 +62,19 @@ public class AverageNeighborSqAlgorithm : AlgorithmBase
                         var bd = cb * cb * avg.Num + (avg.BSq - 2 * cb * avg.B);
                         var diff = rd + gd + bd;
                         // we have to use the same comparison as PixelWithValue!
-                        if (diff < bestdiff || (diff == bestdiff && qp.Value.Pos < bestpixel.Pos))
+                        if (diff < bestdiff || (diff == bestdiff && qp.Weight < bestpixel!.Weight))
                         {
                             bestdiff = diff;
-                            bestpixel = qp.Value;
+                            bestpixel = qp;
                         }
                     }
                 }
 
-                return new PixelWithValue
-                {
-                    Pixel = bestpixel,
-                    Value = bestdiff
-                };
-            }).Pixel!.Value;
+                return new PixelDiff(bestpixel, bestdiff);
+            }).Pixel!;
 
         // found the pixel, return it
-        _queue.Remove(best);
+        _queue.TryRemove(best);
         return best;
     }
 
@@ -88,13 +84,13 @@ public class AverageNeighborSqAlgorithm : AlgorithmBase
         for (var i = 0; i < p.Neighbors.Length; i++)
         {
             var np = p.Neighbors[i];
-            if (np.Empty)
+            if (np.IsEmpty)
             {
                 int r = 0, g = 0, b = 0, rsq = 0, gsq = 0, bsq = 0, n = 0;
                 for (var j = 0; j < np.Neighbors.Length; j++)
                 {
                     var nnp = np.Neighbors[j];
-                    if (!nnp.Empty)
+                    if (!nnp.IsEmpty)
                     {
                         var nr = (int)nnp.Color.Red;
                         var ng = (int)nnp.Color.Green;
@@ -120,9 +116,9 @@ public class AverageNeighborSqAlgorithm : AlgorithmBase
                     Num = n
                 };
                 if (np.QueueIndex == -1)
-                    _queue.Add(np);
+                    _queue.TryAdd(np);
                 _queue.Data[np.QueueIndex] = avg;
             }
         }
     }
-}*/
+}

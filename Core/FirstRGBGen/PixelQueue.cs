@@ -208,7 +208,7 @@ public sealed class PixelData<T>
 /// indexed traversal (it just exposes a simple array). It supports O(1) lookups (every pixel contains it's own index in this array). Adding
 /// and removal are also O(1) because we don't usually reallocate the array.
 /// </summary>
-public sealed class PixelQueue
+public class PixelQueue
 {
     private Pixel?[] _pixels;
     private int _endIndex;
@@ -316,7 +316,7 @@ public sealed class PixelQueue
         Debug.Assert(_endIndex >= _count);
     }
 
-    public bool TryAdd(Pixel pixel)
+    public virtual bool TryAdd(Pixel pixel)
     {
         if (pixel.QueueIndex != -1) return false;
         int i = _endIndex;
@@ -328,7 +328,7 @@ public sealed class PixelQueue
         return true;
     }
 
-    public bool TryRemove(Pixel pixel)
+    public virtual bool TryRemove(Pixel pixel)
     {
         if (pixel.QueueIndex == -1) return false;
 
@@ -336,5 +336,41 @@ public sealed class PixelQueue
         pixel.QueueIndex = -1;
         _count--;
         return true;
+    }
+}
+
+/// <summary>
+/// The only thing it adds to its ancestor <see cref="PixelQueue"/> is that it also maintains an arbitrary data object for every pixel. It
+/// uses the same array indexing, uses structs and doesn't do cleanups.
+/// </summary>
+public class PixelQueue<T> : PixelQueue
+    where T : struct
+{
+    public T[] Data;
+
+    public PixelQueue()
+    {
+        Data = new T[Pixels.Length];
+    }
+
+    public override bool TryAdd(Pixel pixel)
+    {
+        if (base.TryAdd(pixel))
+        {
+            // we need to maintain the same array size
+            if (Pixels.Length != Data.Length)
+                Array.Resize(ref Data, Pixels.Length);
+            return true;
+        }
+        return false;
+    }
+
+    public void ReAdd(Pixel pixel)
+    {
+        // maintain data when moving a pixel
+        var data = Data[pixel.QueueIndex];
+        base.TryRemove(pixel);
+        base.TryAdd(pixel);
+        Data[pixel.QueueIndex] = data;
     }
 }

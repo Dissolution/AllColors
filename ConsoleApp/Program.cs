@@ -2,6 +2,7 @@
 using System.Drawing.Imaging;
 using AllColors;
 using AllColors.FirstRGBGen;
+using AllColors.Scratch.ThriceGen;
 using AllColors.Thrice;
 
 // Faster!
@@ -11,14 +12,14 @@ Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
 
 
 //64 512 512 256 256 5 0 11111111 rnd one
-args = new string[] { "64", "512", "512", "256", "256", "5", "0", "11111111", "rnd", "one" };
+args = new string[] { "64", "512", "512", "256", "256", "5", "0", "11111111", "rnd", "avg" };
 //Prog.Main(new string[] { "64", "512", "512", "256", "256", "5", "0", "11111111", "rnd", "one" });
-//Program2.Run(args);
+var directBitmap = PixelGen.Run(PixelGenOptions.ParseArgs(args)!);
 
 
-ImageGenerator generator = new ImageGenerator(ColorSpace.BestFit(1080, 2340));
-int? seed = 147;
-var directBitmap = generator.Generate(seed);
+// ImageGenerator generator = new ImageGenerator(ColorSp);
+// int? seed = 147;
+// var directBitmap = generator.Generate(seed);
 //string imagePath = $@"c:\temp\image_{options.ColorCount}_{options.Width}_{options.Height}_{seed}.bmp";
 
 
