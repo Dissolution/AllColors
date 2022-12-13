@@ -1,4 +1,4 @@
-namespace AllColors.ThriceGen;
+namespace AllColors.Scratch.RGBGenerator;
 
 /// <summary>
 /// Represents a pixel in the big image.
@@ -12,25 +12,26 @@ public class Pixel
 
     //public uint QueueScore;
 
-    public bool inQueue;
+    public bool InQueue;
 
-    public byte nonEmptyNeigh = 0;
-    public int block;
+    public byte NonEmptyNeighborCount = 0;
+    public int Block;
     //public int indexInBlock;
 
 
-    public ARGB avg;
+    public RGB AverageColor;
+
     /// <summary>
     /// Color of this pixel.
     /// </summary>
-    public ARGB Color;
+    public RGB Color;
 
     /// <summary>
     /// Index of this pixel in the queue (<see cref="PixelList"/>), or -1 if it's not queued.
     /// </summary>
     public int QueueIndex {
         get { return 0; }
-        set {}
+        set { }
     }
 
     /// <summary>

@@ -1,7 +1,4 @@
-﻿using System.Diagnostics;
-using System.Drawing;
-
-namespace AllColors;
+﻿namespace AllColors;
 
 [StructLayout(LayoutKind.Explicit, Size = 4)] // 4 bytes = sizeof(int)
 [SkipLocalsInit]

@@ -9,11 +9,11 @@ namespace AllColors.FirstRGBGen;
 /// </summary>
 public class AverageNeighborAlgorithm : AlgorithmBase
 {
-    private PixelQueue<ARGB> _queue = new PixelQueue<ARGB>();
+    private readonly PixelData<ARGB> _pixelData = new();
 
     public override PixelQueue Queue
     {
-        get { return _queue; }
+        get { return _pixelData; }
     }
 
     public AverageNeighborAlgorithm(Pixel[] imagePixels, int startIndex) : base(imagePixels, startIndex)
@@ -23,8 +23,8 @@ public class AverageNeighborAlgorithm : AlgorithmBase
     protected override Pixel PlaceImpl(ARGB c)
     {
         // find the best pixel with parallel processing
-        var q = _queue.Pixels;
-        var best = Partitioner.Create(0, _queue.UsedUntil, Math.Max(256, _queue.UsedUntil / Program2.Threads)).AsParallel()
+        var q = _pixelData.Pixels;
+        var best = Partitioner.Create(0, _pixelData.UsedUntil, Math.Max(256, _pixelData.UsedUntil / Program2.Threads)).AsParallel()
             .Min(range =>
             {
                 var bestdiff = int.MaxValue;
@@ -34,7 +34,7 @@ public class AverageNeighborAlgorithm : AlgorithmBase
                     var qp = q[i];
                     if (qp != null)
                     {
-                        var avg = _queue.Data[qp.QueueIndex];
+                        var avg = _pixelData.Data[qp.QueueIndex];
                         var rd = (int)avg.Red - c.Red;
                         var gd = (int)avg.Green - c.Green;
                         var bd = (int)avg.Blue - c.Blue;
@@ -56,7 +56,7 @@ public class AverageNeighborAlgorithm : AlgorithmBase
             }).Pixel;
 
         // found the pixel, return it
-        _queue.Remove(best);
+        _pixelData.Remove(best);
         return best;
     }
 
@@ -88,8 +88,8 @@ public class AverageNeighborAlgorithm : AlgorithmBase
                     blue: (b / n)
                 );
                 if (np.QueueIndex == -1)
-                    _queue.Add(np);
-                _queue.Data[np.QueueIndex] = avg;
+                    _pixelData.Add(np);
+                _pixelData.Data[np.QueueIndex] = avg;
             }
         }
     }

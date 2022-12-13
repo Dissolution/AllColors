@@ -1,6 +1,7 @@
 ﻿namespace AllColors.Thrice;
 
-public sealed class ImageCell : IEquatable<ImageCell>,
+public sealed class ImageCell : IChildItem,
+    IEquatable<ImageCell>,
     IEqualityOperators<ImageCell, ImageCell, bool>
 {
     public static bool operator ==(ImageCell? left, ImageCell? right)
@@ -19,7 +20,7 @@ public sealed class ImageCell : IEquatable<ImageCell>,
 
     public Coord Position { get; }
     
-    public int QueueIndex { get; set; }
+    public int ListIndex { get; set; }
 
     public bool IsEmpty { get; private set; }
 
@@ -30,7 +31,7 @@ public sealed class ImageCell : IEquatable<ImageCell>,
     public ImageCell(Coord position)
     {
         this.Position = position;
-        this.QueueIndex = -1;
+        this.ListIndex = -1;
         this.IsEmpty = true;
         this.Color = default;
         this.Neighbors = Array.Empty<ImageCell>();

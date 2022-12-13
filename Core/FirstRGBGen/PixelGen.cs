@@ -14,46 +14,9 @@ using System.Text.RegularExpressions;
 
 namespace AllColors.FirstRGBGen;
 
-public static class PixelGen
+public sealed class PixelGenOptions
 {
-    public sealed class Options
-    {
-        public ColorSpace ColorSpace { get; set; }
-
         /// <summary>
-        /// Number of image frames to save.
-        /// </summary>
-        public int NumFrames { get; set; }
-
-        /// <summary>
-        /// Random generator, only used during pre-calculations in a deterministic way. The same seed always results in the same image.
-        /// </summary>
-        public Shuffler Shuffler { get; set; }
-
-        /// <summary>
-        /// Available neighbor X coordinate differences (-1,0,+1).
-        /// </summary>
-        public int[] NeighX { get; set; }
-
-        /// <summary>
-        /// Available neighbor Y coordinate differences (-1,0,+1).
-        /// </summary>
-        public int[] NeighY { get; set; }
-
-        /// <summary>
-        /// The chosen color sorting implementation.
-        /// </summary>
-        public IComparer<ARGB> Sorter { get; set; }
-
-        /// <summary>
-        /// The chosen algorithm implementation.
-        /// </summary>
-        public AlgorithmBase Algorithm { get; set; }
-
-        public Pixel[] ImagePixels { get; init; }
-    }
-
-    /// <summary>
     /// Prints the command line help.
     /// </summary>
     public static void PrintArgsHelp()
@@ -83,7 +46,7 @@ public static class PixelGen
     /// <summary>
     /// Parses the command line arguments.
     /// </summary>
-    public static Options? ParseArgs(string[] args)
+    public static PixelGenOptions? ParseArgs(string[] args)
     {
         if (args.Length != 10)
         {
@@ -227,7 +190,7 @@ public static class PixelGen
         }
 
         Console.WriteLine("Command line arguments are accepted");
-        return new Options
+        return new PixelGenOptions
         {
             ColorSpace = new ColorSpace(numColors, width, height),
             Algorithm = algorithm,
@@ -241,40 +204,69 @@ public static class PixelGen
     }
 
 
+    public ColorSpace ColorSpace { get; set; }
 
-    #region main
+    /// <summary>
+    /// Number of image frames to save.
+    /// </summary>
+    public int NumFrames { get; set; }
+
+    /// <summary>
+    /// Random generator, only used during pre-calculations in a deterministic way. The same seed always results in the same image.
+    /// </summary>
+    public Shuffler Shuffler { get; set; }
+
+    /// <summary>
+    /// Available neighbor X coordinate differences (-1,0,+1).
+    /// </summary>
+    public int[] NeighX { get; set; }
+
+    /// <summary>
+    /// Available neighbor Y coordinate differences (-1,0,+1).
+    /// </summary>
+    public int[] NeighY { get; set; }
+
+    /// <summary>
+    /// The chosen color sorting implementation.
+    /// </summary>
+    public IComparer<ARGB> Sorter { get; set; }
+
+    /// <summary>
+    /// The chosen algorithm implementation.
+    /// </summary>
+    public AlgorithmBase Algorithm { get; set; }
+
+    public Pixel[] ImagePixels { get; init; }
+}
+
+public static class PixelGen
+{
+    
+
 
     /// <summary>
     /// Holds the big image.
     /// </summary>
     private static Pixel[] _imagePixels = null!;
 
-    public static DirectBitmap? Run(Options options)
+    public static DirectBitmap? Run(PixelGenOptions options)
     {
         var width = options.ColorSpace.Width;
         var height = options.ColorSpace.Height;
         var colorDepth = options.ColorSpace.ColorDepth;
         var shuffler = options.Shuffler;
 
-
         var start = DateTime.Now;
-        Console.WriteLine("Running the pre-calculations and eating up your memory...");
+        //var timer = Stopwatch.StartNew();
 
-        // create every color once and randomize their order
-        var colors = new ARGB[width * height];
-        int colorsIndex = 0;
-        for (var r = 0; r < colorDepth; r++)
-        for (var g = 0; g < colorDepth; g++)
-        for (var b = 0; b < colorDepth; b++)
-        {
-            colors[colorsIndex++] = new ARGB
-            (
-                red: (r * 255 / (colorDepth - 1)),
-                green: (g * 255 / (colorDepth - 1)),
-                blue: (b * 255 / (colorDepth - 1))
-            );
-        }
+        //Console.WriteLine("----- Setup -----");
 
+        // Create every color in our colorspace
+        ARGB[] colors = ColorSpace.GetColors(colorDepth);
+
+        //Console.WriteLine($"{timer.Elapsed:g}: Created {colors.Length} colors");
+
+        // We need to shuffle it somehow
         if (options.Sorter is RandomComparer)
         {
             shuffler.Shuffle<ARGB>(colors);
@@ -284,9 +276,7 @@ public static class PixelGen
             Array.Sort<ARGB>(colors, options.Sorter);
         }
         
-#if RUNTESTS
-        Debug.Assert(colorsIndex == colors.Length);
-#endif
+        //Console.WriteLine($"{timer.Elapsed:g}: Sorted colors");
 
         // create the pixels
         _imagePixels = options.ImagePixels;
@@ -294,8 +284,7 @@ public static class PixelGen
         for (var x = 0; x < width; x++)
         {
             int weight = shuffler.Next();
-            var index = (y * width) + x;
-            _imagePixels[index] = new Pixel(x, y, weight);
+            _imagePixels[(y * width) + x] = new Pixel(x, y, weight);
         }
 
 #if RUNTESTS
@@ -309,7 +298,9 @@ public static class PixelGen
         }
 #endif
 
-        // precalculate the neighbors of every pixel
+        //Console.WriteLine($"{timer.Elapsed:g}: Setup {_imagePixels.Length} Pixels");
+
+        // pre-calculate the neighbors of every pixel
         var neighX = options.NeighX;
         var neighY = options.NeighY;
 #if RUNTESTS
@@ -319,7 +310,8 @@ public static class PixelGen
         for (var x = 0; x < width; x++)
         {
             // This excludes self!
-            Pixel[] neighbors = Enumerable.Range(0, neighX.Length).Select(n =>
+            Pixel[] neighbors = Enumerable.Range(0, neighX.Length)
+                .Select(n =>
             {
                 var y2 = y + neighY[n];
                 if (y2 < 0 || y2 == height)
@@ -328,17 +320,14 @@ public static class PixelGen
                 if (x2 < 0 || x2 == width)
                     return null;
                 var pixel = _imagePixels[(y2 * width) + x2];
-                #if RUNTESTS
                 Debug.Assert(pixel.Pos == new Coord(x2, y2));
-#endif
                 return pixel;
             }).Where(p => p != null).ToArray()!;
-            // Randomize neighbors (this is deterministic)
-            //_shuffler.ShuffleCopy<Pixel>(neighbors!);
+            // Store
             _imagePixels[(y * width) + x].Neighbors = neighbors; 
         }
 
-        #if RUNTESTS
+#if RUNTESTS
         // Verify
         for (var y = 0; y < _height; y++)
         for (var x = 0; x < _width; x++)
@@ -353,14 +342,17 @@ public static class PixelGen
                 Debug.Assert(yChange <= 1);
             }
         }
-        #endif
+#endif
 
-        #if RUNTESTS
+        //Console.WriteLine($"{timer.Elapsed:g}: Calculated Pixel Neighbors");
+        //int consoleY = Console.CursorTop;
+
+#if RUNTESTS
         // calculate the saving checkpoints in advance
         var checkpoints = Enumerable.Range(1, _numFrames)
             .ToDictionary(i => (long)i * colors.Length / _numFrames - 1, i => i - 1);
         Thread pngThread = null;
-        #endif
+#endif
 
         var algorithm = options.Algorithm;
         // loop through all colors that we want to place
@@ -371,15 +363,17 @@ public static class PixelGen
             {
                 var queue = algorithm.Queue;
                 queue.Compact();
-                //queue.BadCompact();
+
                 double percentComplete = (double)i / width / height;
-                Console.WriteLine($"{percentComplete:P1}  |  Queue size {queue.Count}");
+                //Console.CursorTop = consoleY;
+                //Console.WriteLine($"{timer.Elapsed:g}: {percentComplete:P1}  |  Queue: {algorithm.Queue.Count}")
+                Console.WriteLine($"{percentComplete:P1}  |  Queue: {queue.Count}");
             }
 
             // run the algorithm
             algorithm.Place(colors[i]);
 
-            #if RUNTESTS
+#if RUNTESTS
             // save a checkpoint if needed
             int checkIndex;
             if (checkpoints.TryGetValue(i, out checkIndex))
@@ -413,12 +407,12 @@ public static class PixelGen
                 }));
                 pngThread.Start();
             }
-            #endif
+#endif
         }
 
         Debug.Assert(algorithm.Queue.Count == 0);
 
-        #if RUNTESTS
+#if RUNTESTS
         // wait for the final image
         pngThread.Join();
 
@@ -441,12 +435,11 @@ public static class PixelGen
         }
 
         img2.Dispose();
-        #endif
+#endif
 
         // we're done!
-        Console.WriteLine("All done! It took this long: {0}", DateTime.Now.Subtract(start));
-        Console.WriteLine("Press ENTER to exit");
-        Console.ReadLine();
+        //Console.WriteLine($"{timer.Elapsed:g}: Finished!");
+        Console.WriteLine($"Finished in {DateTime.Now - start:g}");
 
         DirectBitmap image = new DirectBitmap(width, height);
         for (var y = 0; y < height; y++)
@@ -458,5 +451,4 @@ public static class PixelGen
         return image;
     }
 
-    #endregion
 }

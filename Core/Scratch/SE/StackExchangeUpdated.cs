@@ -1,8 +1,6 @@
 ﻿using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
 
-namespace AllColors.SE;
+namespace AllColors.Scratch.SE;
 
 // represent a coordinate
 

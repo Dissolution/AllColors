@@ -1,44 +1,10 @@
-﻿using System.Diagnostics;
-using System.Drawing;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace AllColors.Thrice;
 
 public class ImageGenerator
 {
-    private static ARGB[] CreateColors(ColorSpace options)
-    {
-        // ColorCount is the number of each different R, G, and B values we will use
-        // Example:
-        // 16 => 16*16*16 = 4096 = 64x64
-        // 32 => 32*32*32 = ? = 256*128
-        int colorCount = options.ColorDepth;
-
-        // ColorCount each of R, G, and B
-        var count = colorCount * colorCount * colorCount;
-
-        ARGB[] colors = new ARGB[count];
-        int c = 0;
-
-        // We have a number of colors to generate, which gives us a divisor
-        int divisor = colorCount - 1;
-
-        // For each channel
-        for (var r = 0; r < colorCount; r++)
-        for (var g = 0; g < colorCount; g++)
-        for (var b = 0; b < colorCount; b++)
-        {
-            var color = new ARGB(
-                r * 255 / divisor,
-                g * 255 / divisor,
-                b * 255 / divisor);
-            colors[c++] = color;
-        }
-
-        Debug.Assert(c == count);
-
-        return colors;
-    }
-
     // gets the difference between two colors
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int Distance(ARGB left, ARGB right)
@@ -62,6 +28,7 @@ public class ImageGenerator
                 if (dist < fit) fit = dist;
             }
         }
+
         return fit;
     }
 
@@ -78,7 +45,7 @@ public class ImageGenerator
         _height = options.Height;
         _imageGrid = new ImageGrid(_width, _height);
         _colorSpace = options;
-        _colors = CreateColors(options);
+        _colors = ColorSpace.GetColors(options.ColorDepth);
     }
 
     public DirectBitmap Generate(int? seed = null)
@@ -94,7 +61,8 @@ public class ImageGenerator
         _imageGrid.Clear();
 
         // Our Coordinates that are available to be filled
-        var available = new HashSet<ImageCell>((_width + _height) * 2);
+        //var available = new HashSet<ImageCell>((_width + _height) * 2);
+        var queue = new ParentList<ImageCell>();
 
 #if DEBUG
 
@@ -122,38 +90,74 @@ public class ImageGenerator
             if (c % report == 0)
             {
                 double progress = c / dCount;
-                int queueCount = available.Count;
+                //int queueCount = available.Count;
+                int queueCount = queue.Count;
                 if (queueCount > maxQueueCount)
                     maxQueueCount = queueCount;
                 //Console.CursorTop = consoleLineYPos;
-                Debug.WriteLine($"{progress:P1} complete: Queue at {queueCount}");
+                Console.WriteLine($"{progress:P1} complete: Queue at {queueCount}");
             }
 #endif
 
             ImageCell bestCell;
 
             // The very first pixel we place in the middle
-            if (available.Count == 0)
+            //if (available.Count == 0)
+            if (queue.Count == 0)
             {
                 var midPoint = _colorSpace.MidPoint;
                 bestCell = _imageGrid[midPoint];
             }
             else
             {
+                /*
                 bestCell = available
                     .AsParallel()
                     .OrderBy(cell => CalculateFit(cell, color))
                     .ThenBy(cell => cell.Position)
                     .First();
+                */
+
+                var rangeSize = Math.Max(256, queue.EndIndex / Environment.ProcessorCount);
+                var cells = queue.Children;
+                bestCell = Partitioner.Create(
+                        fromInclusive: 0,
+                        toExclusive: queue.EndIndex,
+                        rangeSize: rangeSize)
+                    .AsParallel()
+                    .Min(range =>
+                    {
+                        int min = int.MaxValue;
+                        ImageCell? bestCell = null;
+                        ImageCell? cell;
+                        for (var i = range.Item1; i < range.Item2; i++)
+                        {
+                            cell = cells[i];
+                            if (cell is not null)
+                            {
+                                var diff = CalculateFit(cell, color);
+                                if (diff < min)
+                                {
+                                    min = diff;
+                                    bestCell = cell;
+                                }
+                            }
+                        }
+
+                        Debug.Assert(bestCell is not null);
+                        return new CellDiff(bestCell!, min);
+                    }).Cell;
             }
 
+            Debug.Assert(bestCell is not null);
             Debug.Assert(bestCell.IsEmpty);
 
             // Set that cell's color
             bestCell.SetColor(color);
 
             // Remove that cell from available
-            available.Remove(bestCell); // Okay if this is false
+            //available.Remove(bestCell); // Okay if this is false
+            queue.TryRemove(bestCell);
 
             // For all of that cell's neighbors, add them to available if they are empty
             var neighbors = bestCell.Neighbors;
@@ -162,18 +166,20 @@ public class ImageGenerator
                 var neighbor = neighbors[i];
                 if (neighbor.IsEmpty)
                 {
-                    available.Add(neighbor);
+                    //available.Add(neighbor);
+                    queue.TryAdd(neighbor);
                 }
             }
         }
 
-        Debug.Assert(available.Count == 0);
+        //Debug.Assert(available.Count == 0);
+        Debug.Assert(queue.Count == 0);
 
         //Console.CursorTop = consoleLineYPos;
-        Debug.WriteLine($"{1.0d:P1} complete: Queue at {0}");
+        Console.WriteLine($"{1.0d:P1} complete: Queue at {0}");
 
         timer.Stop();
-        Debug.WriteLine($"Completed in {timer.Elapsed:c}");
+        Console.WriteLine($"Completed in {timer.Elapsed:c}");
 
         // Build the image
         var img = new DirectBitmap(_width, _height);

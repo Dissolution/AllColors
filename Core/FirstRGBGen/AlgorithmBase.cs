@@ -2,6 +2,10 @@
 
 namespace AllColors.FirstRGBGen;
 
+
+
+
+
 /// <summary>
 /// Base class of algorithms.
 /// </summary>

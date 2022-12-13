@@ -2,7 +2,7 @@
 
 public sealed class ImageGrid
 {
-    private readonly ImageCell[,] _imageCells;
+    private readonly ImageCell[] _imageCells;
     private readonly int _width;
     private readonly int _height;
 
@@ -11,7 +11,7 @@ public sealed class ImageGrid
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
-            return _imageCells[x, y];
+            return _imageCells[(y*_width) + x];
         }
     }
 
@@ -20,7 +20,7 @@ public sealed class ImageGrid
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
-            return _imageCells[pos.X, pos.Y];
+            return _imageCells[(pos.Y*_width)+pos.X];
         }
     }
 
@@ -28,16 +28,16 @@ public sealed class ImageGrid
     {
         _width = width;
         _height = height;
-        _imageCells = new ImageCell[width, height];
+        _imageCells = new ImageCell[width * height];
         for (var y = 0; y < height; y++)
         for (var x = 0; x < width; x++)
         {
-            _imageCells[x, y] = new ImageCell(new(x, y));
+            _imageCells[(y * _width) + x] = new ImageCell(new(x, y));
         }
         for (var y = 0; y < height; y++)
         for (var x = 0; x < width; x++)
         {
-            _imageCells[x, y].Neighbors = GetNeighbors(x, y);
+            _imageCells[(y * _width) + x].Neighbors = GetNeighbors(x, y);
         }
     }
 
@@ -63,7 +63,7 @@ public sealed class ImageGrid
                 // Self?
                 if (yOffset == 0 && xOffset == 0) continue;
 
-                neighbors.Add(_imageCells[newX, newY]);
+                neighbors.Add(_imageCells[(newY * _width) + newX]);
             }
         }
         return neighbors.ToArray();
@@ -72,10 +72,9 @@ public sealed class ImageGrid
     public void Clear()
     {
         var cells = _imageCells;
-        for (var y = 0; y < _height; y++)
-        for (var x = 0; x < _width; x++)
+        for (var i = 0; i < cells.Length; i++)
         {
-            cells[x, y].ClearColor();
+            cells[i].ClearColor();
         }
     }
 }

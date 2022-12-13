@@ -1,11 +1,11 @@
-namespace AllColors.ThriceGen;
+namespace AllColors.Scratch.RGBGenerator;
 
 /// <summary>
 /// Represents a pixel with a value. Used to sort and merge parallel run results.
 /// </summary>
 public struct PixelWithValue : IComparable<PixelWithValue>
 {
-    public Pixel Pixel;
+    public Pixel? Pixel;
     public int Value;
 
     public int CompareTo(PixelWithValue that)

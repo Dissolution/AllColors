@@ -1,6 +1,4 @@
-using System.Drawing;
-
-namespace AllColors.ThriceGen;
+namespace AllColors.Scratch.ThriceGen;
 
 /// <summary>
 /// Represents an 8-bit RGB color. Faster and smaller than the framework version, <see cref="Color"/>.

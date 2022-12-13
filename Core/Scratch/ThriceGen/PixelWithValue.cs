@@ -1,4 +1,4 @@
-namespace AllColors.RGBGenerator;
+namespace AllColors.Scratch.ThriceGen;
 
 /// <summary>
 /// Represents a pixel with a value. Used to sort and merge parallel run results.

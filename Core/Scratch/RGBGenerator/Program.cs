@@ -31,76 +31,73 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Text.RegularExpressions;
 
-namespace AllColors.ThriceGen;
+namespace AllColors.Scratch.RGBGenerator;
 
-public class Prog
+public class Program
 {
     #region settings
 
     /// <summary>
     /// Number of colors per channel.
     /// </summary>
-    private static int NumColors;
+    static int NumColors;
 
     /// <summary>
     /// Width of the image.
     /// </summary>
-    private static int Width;
+    static int Width;
 
     /// <summary>
     /// Height of the image.
     /// </summary>
-    private static int Height;
+    static int Height;
 
     /// <summary>
     /// First pixel X coordinate.
     /// </summary>
-    private static int StartX;
+    static int StartX;
 
     /// <summary>
     /// First pixel Y coordinate.
     /// </summary>
-    private static int StartY;
+    static int StartY;
 
     /// <summary>
     /// Number of image frames to save.
     /// </summary>
-    private static int NumFrames;
+    static int NumFrames;
 
-    // /// <summary>
-    // /// Random generator, only used during precalculations in a deterministic way. The same seed awlays results in the same image.
-    // /// </summary>
-    // private static Random RndGen;
-    private static Shuffler Shuffler;
+    /// <summary>
+    /// Random generator, only used during precalculations in a deterministic way. The same seed awlays results in the same image.
+    /// </summary>
+    static Random RndGen;
 
     /// <summary>
     /// Available neighbor X coordinate differences (-1,0,+1).
     /// </summary>
-    private static int[] NeighX;
+    static int[] NeighX;
 
     /// <summary>
     /// Available neighbor Y coordinate differences (-1,0,+1).
     /// </summary>
-    private static int[] NeighY;
+    static int[] NeighY;
 
     /// <summary>
     /// The chosen color sorting implementation.
     /// </summary>
-    private static IComparer<ARGB> _sorter;
+    static IComparer<RGB> Sorter;
 
     /// <summary>
     /// The chosen algorithm implementation.
     /// </summary>
-    private static AlgorithmBase _algorithm;
+    static AlgorithmBase Algorithm;
 
     /// <summary>
     /// Prints the command line help.
     /// </summary>
-    private static void printArgsHelp()
+    static void printArgsHelp()
     {
         Console.WriteLine();
         Console.WriteLine("You have to run the program like this:");
@@ -127,7 +124,7 @@ public class Prog
     /// <summary>
     /// Parses the command line arguments.
     /// </summary>
-    private static bool parseArgs(string[] args)
+    static bool parseArgs(string[] args)
     {
         if (args.Length != 10)
         {
@@ -216,8 +213,7 @@ public class Prog
             return false;
         }
 
-        //RndGen = seed == 0 ? new Random() : new Random(seed);
-        Shuffler = new Shuffler(seed == 0 ? null : seed);
+        RndGen = seed == 0 ? new Random() : new Random(seed);
 
         // [neighbors]
         if (!Regex.IsMatch(args[7], "^[01]{8}$"))
@@ -233,7 +229,7 @@ public class Prog
 
         // [sorting]
         if (args[8] == "rnd")
-            _sorter = new RandomARGBComparer(Shuffler);
+            Sorter = new RandomComparer();
         else if (args[8].StartsWith("hue-"))
         {
             int hueshift;
@@ -243,7 +239,7 @@ public class Prog
                 return false;
             }
 
-            _sorter = new HueComparer(hueshift);
+            Sorter = new HueComparer(hueshift);
         }
         else if (args[8].StartsWith("lum-"))
         {
@@ -254,7 +250,7 @@ public class Prog
                 return false;
             }
 
-            _sorter = new LumComparer(hueshift);
+            Sorter = new LumComparer(hueshift);
         }
         else
         {
@@ -264,11 +260,11 @@ public class Prog
 
         // [algo]
         if (args[9] == "one")
-            _algorithm = new OneNeighborSqAlgorithm();
+            Algorithm = new OneNeighborSqAlgorithm();
         else if (args[9] == "avg")
-            _algorithm = new AverageNeighborAlgorithm();
+            Algorithm = new AverageNeighborAlgorithm();
         else if (args[9] == "avgsq")
-            _algorithm = new AverageNeighborSqAlgorithm();
+            Algorithm = new AverageNeighborSqAlgorithm();
         else
         {
             Console.WriteLine("[algo] is not one of the allowed values");
@@ -284,64 +280,62 @@ public class Prog
     #region color sorting algorithms
 
     /// <summary>
-    /// Totally random (but deterministic) color sorting.
+    /// Totally random (but detereministic) color sorting.
     /// </summary>
-    public class RandomARGBComparer : IComparer<ARGB>
+    class RandomComparer : IComparer<RGB>
     {
-        private readonly Shuffler _shuffler;
-
-        public RandomARGBComparer(Shuffler shuffler)
+        public int Compare(RGB x, RGB y)
         {
-            _shuffler = shuffler;
-        }
-
-        public int Compare(ARGB left, ARGB right)
-        {
-            return _shuffler.Compare();
+            return RndGen.Next(11) - 5;
         }
     }
 
     /// <summary>
     /// Compares by hue first, then by brightness, and finally random.
     /// </summary>
-    public class HueComparer : IComparer<ARGB>
+    class HueComparer : IComparer<RGB>
     {
-        private readonly int _shift;
+        private int shift;
 
-        public HueComparer(int shift = 0)
+        public HueComparer(int shift)
         {
-            _shift = shift;
+            this.shift = shift;
         }
 
-        public int Compare(ARGB left, ARGB right)
+        public int Compare(RGB x, RGB y)
         {
-            var lHue = ((left.GetHue() + _shift) % 360);
-            var rHue = ((right.GetHue() + _shift) % 360);
-            int c = lHue.CompareTo(rHue);
-            if (c != 0) return c;
-            c = left.GetBrightness().CompareTo(right.GetBrightness());
-            if (c != 0) return c;
-            return 0;
+            var xc = x.ToColor();
+            var yc = y.ToColor();
+            var c = ((xc.GetHue() + shift) % 360).CompareTo((yc.GetHue() + shift) % 360);
+            if (c == 0)
+                c = xc.GetBrightness().CompareTo(yc.GetBrightness());
+            if (c == 0)
+                c = RndGen.Next(11) - 5;
+            return c;
         }
     }
 
     /// <summary>
     /// Compares by brightness first, then by hue, and finally random.
     /// </summary>
-    public class LumComparer : IComparer<ARGB>
+    class LumComparer : IComparer<RGB>
     {
-        private readonly int _shift;
+        private int shift;
 
         public LumComparer(int shift)
         {
-            _shift = shift;
+            this.shift = shift;
         }
 
-        public int Compare(ARGB left, ARGB right)
+        public int Compare(RGB x, RGB y)
         {
-            var c = left.GetBrightness().CompareTo(right.GetBrightness());
+            var xc = x.ToColor();
+            var yc = y.ToColor();
+            var c = xc.GetBrightness().CompareTo(yc.GetBrightness());
             if (c == 0)
-                c = ((left.GetHue() + _shift) % 360).CompareTo((right.GetHue() + _shift) % 360);
+                c = ((xc.GetHue() + shift) % 360).CompareTo((yc.GetHue() + shift) % 360);
+            if (c == 0)
+                c = RndGen.Next(11) - 5;
             return c;
         }
     }
@@ -355,12 +349,12 @@ public class Prog
     /// indexed traversal (it just exposes a simple array). It supports O(1) lookups (every pixel contains it's own index in this array). Adding
     /// and removal are also O(1) because we don't usually reallocate the array.
     /// </summary>
-    private class PixelQueue
+    class PixelQueue
     {
         /// <summary>
         /// Array of pixels. Some entries may be null.
         /// </summary>
-        public Pixel[] Pixels;
+        public Pixel?[] Pixels;
 
         /// <summary>
         /// Number of entries (non-null elements).
@@ -374,7 +368,7 @@ public class Prog
 
         public PixelQueue()
         {
-            Pixels = new Pixel[1024];
+            Pixels = new Pixel?[1024];
         }
 
         /// <summary>
@@ -405,7 +399,7 @@ public class Prog
         /// <summary>
         /// Readds a pixel, while maintaining its associated data in <see cref="PixelQueue{T}"/>.
         /// </summary>
-        public virtual void Readd(Pixel p)
+        public virtual void ReAdd(Pixel p)
         {
             Remove(p);
             Add(p);
@@ -424,7 +418,7 @@ public class Prog
             {
                 if (Pixels[i] != null)
                 {
-                    Readd(Pixels[i]);
+                    ReAdd(Pixels[i]!);
                 }
             }
         }
@@ -434,7 +428,7 @@ public class Prog
     /// The only thing it adds to its ancestor <see cref="PixelQueue"/> is that it also maintains an arbitrary data object for every pixel. It
     /// uses the same array indexing, uses structs and doesn't do cleanups.
     /// </summary>
-    private class PixelQueue<T> : PixelQueue
+    class PixelQueue<T> : PixelQueue
         where T : struct
     {
         public T[] Data;
@@ -452,11 +446,11 @@ public class Prog
                 Array.Resize(ref Data, Pixels.Length);
         }
 
-        public override void Readd(Pixel p)
+        public override void ReAdd(Pixel p)
         {
             // maintain data when moving a pixel
             var data = Data[p.QueueIndex];
-            base.Readd(p);
+            base.ReAdd(p);
             Data[p.QueueIndex] = data;
         }
     }
@@ -468,7 +462,7 @@ public class Prog
     /// <summary>
     /// Base class of algorithms.
     /// </summary>
-    private abstract class AlgorithmBase
+    abstract class AlgorithmBase
     {
         /// <summary>
         /// Every implementation has a pixel queue.
@@ -491,7 +485,7 @@ public class Prog
         /// <summary>
         /// Places the given color on the image.
         /// </summary>
-        public abstract void Place(ARGB c);
+        public abstract void Place(RGB c);
         /*{
             // find the next coordinates
             Pixel p;
@@ -511,7 +505,7 @@ public class Prog
         /// <summary>
         /// Places the given color on the image. Can assume that the queue is not empty.
         /// </summary>
-        protected abstract Pixel placeImpl(ARGB c);
+        protected abstract Pixel placeImpl(RGB c);
 
         /// <summary>
         /// Adjusts the queue after placing the given pixel.
@@ -523,11 +517,11 @@ public class Prog
     /// The queue contains filled pixels, which have at least one empty neighbor. In each step, we find the closest match to the new color in the
     /// queue. Then we place the new color into a random empty neighbor. We use a squared difference metric.
     /// </summary>
-    private class OneNeighborSqAlgorithm : AlgorithmBase
+    class OneNeighborSqAlgorithm : AlgorithmBase
     {
-        private PixelQueue queue = new PixelQueue();
+        PixelQueue queue = new PixelQueue();
 
-        public override void Place(ARGB c)
+        public override void Place(RGB c)
         {
             // find the next coordinates
             Pixel p;
@@ -544,7 +538,7 @@ public class Prog
             changeQueue(p);
         }
 
-        protected override Pixel placeImpl(ARGB c)
+        protected override Pixel placeImpl(RGB c)
         {
             // find the best pixel with parallel processing
             var q = queue.Pixels;
@@ -558,9 +552,9 @@ public class Prog
                         var qp = q[i];
                         if (qp != null)
                         {
-                            var rd = (int)qp.Color.Red - c.Red;
-                            var gd = (int)qp.Color.Green - c.Green;
-                            var bd = (int)qp.Color.Blue - c.Blue;
+                            var rd = (int)qp.Color.R - c.R;
+                            var gd = (int)qp.Color.G - c.G;
+                            var bd = (int)qp.Color.B - c.B;
                             var diff = rd * rd + gd * gd + bd * bd;
                             // we have to use the same comparison as PixelWithValue!
                             if (diff < bestdiff || (diff == bestdiff && qp.Weight < bestpixel.Weight))
@@ -624,16 +618,16 @@ public class Prog
     /// its neighbors. In each step, we find the average that matches the new color the most. Uses a linear difference metric. It gives a blurred
     /// effect.
     /// </summary>
-    private class AverageNeighborAlgorithm : AlgorithmBase
+    class AverageNeighborAlgorithm : AlgorithmBase
     {
-        private PixelQueue<ARGB> queue = new PixelQueue<ARGB>();
+        PixelQueue<RGB> queue = new PixelQueue<RGB>();
 
         /*public override PixelQueue Queue
         {
             get { return queue; }
         }*/
 
-        public override void Place(ARGB c)
+        public override void Place(RGB c)
         {
             // find the next coordinates
             Pixel p;
@@ -650,7 +644,7 @@ public class Prog
             changeQueue(p);
         }
 
-        protected override Pixel placeImpl(ARGB c)
+        protected override Pixel placeImpl(RGB c)
         {
             // find the best pixel with parallel processing
             var q = queue.Pixels;
@@ -665,9 +659,9 @@ public class Prog
                         if (qp != null)
                         {
                             var avg = queue.Data[qp.QueueIndex];
-                            var rd = (int)avg.Red - c.Red;
-                            var gd = (int)avg.Green - c.Green;
-                            var bd = (int)avg.Blue - c.Blue;
+                            var rd = (int)avg.R - c.R;
+                            var gd = (int)avg.G - c.G;
+                            var bd = (int)avg.B - c.B;
                             var diff = rd * rd + gd * gd + bd * bd;
                             // we have to use the same comparison as PixelWithValue!
                             if (diff < bestdiff || (diff == bestdiff && qp.Weight < bestpixel.Weight))
@@ -704,18 +698,19 @@ public class Prog
                         var nnp = np.Neighbors[j];
                         if (!nnp.Empty)
                         {
-                            r += nnp.Color.Red;
-                            g += nnp.Color.Green;
-                            b += nnp.Color.Blue;
+                            r += nnp.Color.R;
+                            g += nnp.Color.G;
+                            b += nnp.Color.B;
                             n++;
                         }
                     }
 
-                    var avg = new ARGB(0,
-                        (byte)(r / n),
-                        (byte)(g / n),
-                        (byte)(b / n)
-                    );
+                    var avg = new RGB
+                    {
+                        R = (byte)(r / n),
+                        G = (byte)(g / n),
+                        B = (byte)(b / n)
+                    };
                     if (np.QueueIndex == -1)
                         queue.Add(np);
                     queue.Data[np.QueueIndex] = avg;
@@ -729,7 +724,7 @@ public class Prog
     /// leaves lots of gaps between differently colored branches, so it grows like a coral, which is very cool. The downside is that the queue
     /// gets very big. It also has a blurred effect, but with some more rough edges.
     /// </summary>
-    private class AverageNeighborSqAlgorithm : AlgorithmBase
+    class AverageNeighborSqAlgorithm : AlgorithmBase
     {
         /// <summary>
         /// Let's say we have three neighbors: A, B, C. We want to add a fourth color, D. The squared difference for one channel is
@@ -737,7 +732,7 @@ public class Prog
         /// rearrange the formula like this: 3*D^2+((A^2+B^2+C^2)-2D(A+B+C)). Now we can precalculate the values which depend on the neighbors.
         /// This structure contains these values.
         /// </summary>
-        private struct AvgInfo
+        struct AvgInfo
         {
             // sum of neighbors
             public int R, G, B;
@@ -749,16 +744,16 @@ public class Prog
             public int Num;
         }
 
-        private PixelQueue<ARGB> queue = new PixelQueue<ARGB>();
+        PixelQueue<RGB> queue = new PixelQueue<RGB>();
 
-        private const int BlockSizeLog2 = 2;
-        private const int BlockSize = 1 << BlockSizeLog2;
-        private const int BlockOffset = 8 - BlockSizeLog2;
-        private const int BlockMask = (1 << BlockSizeLog2) - 1;
+        const int BlockSizeLog2 = 2;
+        const int BlockSize = 1 << BlockSizeLog2;
+        const int BlockOffset = 8 - BlockSizeLog2;
+        const int BlockMask = (1 << BlockSizeLog2) - 1;
 
-        private List<Pixel>[] pixelBlocks = new List<Pixel>[BlockSize * BlockSize * BlockSize];
+        List<Pixel>[] pixelBlocks = new List<Pixel>[BlockSize * BlockSize * BlockSize];
 
-        private bool[] pixelBlocksVisited = new bool[BlockSize * BlockSize * BlockSize];
+        bool[] pixelBlocksVisited = new bool[BlockSize * BlockSize * BlockSize];
         /*public override PixelQueue Queue
         {
             get { return queue; }
@@ -792,9 +787,9 @@ public class Prog
 #endif
         }
 
-        private bool addedFirst = false;
+        bool addedFirst = false;
 
-        public override void Place(ARGB c)
+        public override void Place(RGB c)
         {
             // find the next coordinates
             Pixel p;
@@ -825,20 +820,20 @@ public class Prog
 			AutoResetEvent[] doneEvents = new AutoResetEvent[ThreadCount];
 			AutoResetEvent[] goEvents = new AutoResetEvent[ThreadCount];
 #else
-        private Queue<int> st = new Queue<int>();
-        private Stack<int> undoStack = new Stack<int>();
+        Queue<int> st = new Queue<int>();
+        Stack<int> undoStack = new Stack<int>();
 #endif
-        private const int ThreadCount = 8;
+        const int ThreadCount = 8;
 
-        private const int ROffset = BlockSize * BlockSize;
-        private const int GOffset = BlockSize;
-        private const int BOffset = 1;
+        const int ROffset = BlockSize * BlockSize;
+        const int GOffset = BlockSize;
+        const int BOffset = 1;
 
-        private volatile int bestDiff;
-        private volatile Pixel bestPixel = null;
-        private volatile int bestBlock = -1;
+        volatile int bestDiff;
+        volatile Pixel bestPixel = null;
+        volatile int bestBlock = -1;
 
-        private ARGB targetColor;
+        RGB targetColor;
 
 #if !SINGLE_THREAD
 			private void ThreadLoop ( System.Object _index) {
@@ -851,54 +846,54 @@ public class Prog
 						//count++;
 						undoStack.Push (coord);
 
-						RGB expanded = new ARGB ();
-						expanded.Red = (byte)((coord >> (BlockSizeLog2*2)) & BlockMask);
-						expanded.Green = (byte)((coord >> (BlockSizeLog2*1)) & BlockMask);
-						expanded.Blue = (byte)((coord >> (BlockSizeLog2*0)) & BlockMask);
+						RGB expanded = new RGB ();
+						expanded.R = (byte)((coord >> (BlockSizeLog2*2)) & BlockMask);
+						expanded.G = (byte)((coord >> (BlockSizeLog2*1)) & BlockMask);
+						expanded.B = (byte)((coord >> (BlockSizeLog2*0)) & BlockMask);
 
 						RGB mn =
- new ARGB (expanded.Red << BlockOffset, expanded.Green << BlockOffset, expanded.Blue << BlockOffset);
+ new RGB (expanded.R << BlockOffset, expanded.G << BlockOffset, expanded.B << BlockOffset);
 						RGB mx =
- new ARGB ((expanded.Red << BlockOffset) + BlockMask, (expanded.Green << BlockOffset) + BlockMask, (expanded.Blue << BlockOffset) + BlockMask);
+ new RGB ((expanded.R << BlockOffset) + BlockMask, (expanded.G << BlockOffset) + BlockMask, (expanded.B << BlockOffset) + BlockMask);
 
 						RGB closest =
- new RGB(targetColor.Red < mn.Red ? mn.Red : (targetColor.Red > mx.Red ? mx.Red : targetColor.R),
-						                      targetColor.Green < mn.Green ? mn.Green : (targetColor.Green > mx.Green ? mx.Green : targetColor.G),
-						                      targetColor.Blue < mn.Blue ? mn.Blue : (targetColor.Blue > mx.Blue ? mx.Blue : targetColor.B));
+ new RGB(targetColor.R < mn.R ? mn.R : (targetColor.R > mx.R ? mx.R : targetColor.R),
+						                      targetColor.G < mn.G ? mn.G : (targetColor.G > mx.G ? mx.G : targetColor.G),
+						                      targetColor.B < mn.B ? mn.B : (targetColor.B > mx.B ? mx.B : targetColor.B));
 
-						int dr = (closest.Red - targetColor.R);
-						int dg = (closest.Green - targetColor.G);
-						int db = (closest.Blue - targetColor.B);
+						int dr = (closest.R - targetColor.R);
+						int dg = (closest.G - targetColor.G);
+						int db = (closest.B - targetColor.B);
 						int diff = dr*dr + dg*dg + db*db;
 
 						if ( diff > bestDiff ) continue;
 
-						if (expanded.Red > 0 && !pixelBlocksVisited [coord - ROffset]) {
+						if (expanded.R > 0 && !pixelBlocksVisited [coord - ROffset]) {
 							pixelBlocksVisited [coord - ROffset] = true;
 							st.Enqueue (coord - ROffset);
 						}
 
-						if (expanded.Green > 0 && !pixelBlocksVisited [coord - BOffset]) {
+						if (expanded.G > 0 && !pixelBlocksVisited [coord - BOffset]) {
 							pixelBlocksVisited [coord - GOffset] = true;
 							st.Enqueue (coord - GOffset);
 						}
 
-						if (expanded.Blue > 0 && !pixelBlocksVisited [coord - BOffset]) {
+						if (expanded.B > 0 && !pixelBlocksVisited [coord - BOffset]) {
 							pixelBlocksVisited [coord - BOffset] = true;
 							st.Enqueue (coord - BOffset);
 						}
 
-						if (expanded.Red < BlockMask && !pixelBlocksVisited [coord + ROffset]) {
+						if (expanded.R < BlockMask && !pixelBlocksVisited [coord + ROffset]) {
 							pixelBlocksVisited [coord + ROffset] = true;
 							st.Enqueue (coord + ROffset);
 						}
 
-						if (expanded.Green < BlockMask && !pixelBlocksVisited [coord + GOffset]) {
+						if (expanded.G < BlockMask && !pixelBlocksVisited [coord + GOffset]) {
 							pixelBlocksVisited [coord + GOffset] = true;
 							st.Enqueue (coord + GOffset);
 						}
 
-						if (expanded.Blue < BlockMask && !pixelBlocksVisited [coord + BOffset]) {
+						if (expanded.B < BlockMask && !pixelBlocksVisited [coord + BOffset]) {
 							pixelBlocksVisited [coord + BOffset] = true;
 							st.Enqueue (coord + BOffset);
 						}
@@ -914,9 +909,9 @@ public class Prog
 						for ( int i = 0; i < pxl.Count; i++ ) {
 							//System.Console.WriteLine (pxl [i].QueueIndex);
 							var avg = pxl [i].avg;//queue.Data[pxl[i].QueueIndex];
-							var rd = (int)avg.Red - targetColor.R;
-							var gd = (int)avg.Green - targetColor.G;
-							var bd = (int)avg.Blue - targetColor.B;
+							var rd = (int)avg.R - targetColor.R;
+							var gd = (int)avg.G - targetColor.G;
+							var bd = (int)avg.B - targetColor.B;
 							diff = rd * rd + gd * gd + bd * bd;
 							// we have to use the same comparison as PixelWithValue!
 							if (diff < bestDiff || (diff == bestDiff && pxl[i].Weight < bestPixel.Weight))
@@ -945,7 +940,7 @@ public class Prog
 			}
 #endif
 
-        protected override Pixel placeImpl(ARGB c)
+        protected override Pixel placeImpl(RGB c)
         {
             // find the best pixel with parallel processing
             /*var q = queue.Pixels;
@@ -997,15 +992,13 @@ public class Prog
 				watch2.Start ();
 #endif
 
-            ARGB rounded = new ARGB(0,
-                (byte)((c.Red >> BlockOffset) & BlockMask),
-                (byte)((c.Green >> BlockOffset) & BlockMask),
-                (byte)((c.Blue >> BlockOffset) & BlockMask));
+            RGB rounded = new RGB((c.R >> BlockOffset) & BlockMask, (c.G >> BlockOffset) & BlockMask,
+                (c.B >> BlockOffset) & BlockMask);
 
 #if SINGLE_THREAD
             st.Clear();
 #else
-				while (!st.IsEmpty) 
+				while (!st.Empty) 
 				{
 					int tmp;
 					st.TryDequeue(out tmp);
@@ -1026,7 +1019,7 @@ public class Prog
 
             targetColor = c;
 
-            st.Enqueue(rounded.Red * ROffset + rounded.Green * GOffset + rounded.Blue * BOffset);
+            st.Enqueue(rounded.R * ROffset + rounded.G * GOffset + rounded.B * BOffset);
 
 #if SINGLE_THREAD
             while (st.Count > 0)
@@ -1035,61 +1028,57 @@ public class Prog
                 int coord = st.Dequeue();
                 undoStack.Push(coord);
 
-                ARGB expanded = new ARGB(0,
-                    (byte)((coord >> (BlockSizeLog2 * 2)) & BlockMask),
-                    (byte)((coord >> (BlockSizeLog2 * 1)) & BlockMask),
-                    (byte)((coord >> (BlockSizeLog2 * 0)) & BlockMask));
+                RGB expanded = new RGB();
+                expanded.R = (byte)((coord >> (BlockSizeLog2 * 2)) & BlockMask);
+                expanded.G = (byte)((coord >> (BlockSizeLog2 * 1)) & BlockMask);
+                expanded.B = (byte)((coord >> (BlockSizeLog2 * 0)) & BlockMask);
 
-                ARGB mn = new ARGB(0, (byte)(expanded.Red << BlockOffset),
-                    (byte)(expanded.Green << BlockOffset),
-                    (byte)(expanded.Blue << BlockOffset));
-                ARGB mx = new ARGB(0, (byte)((expanded.Red << BlockOffset) + BlockMask),
-                    (byte)((expanded.Green << BlockOffset) + BlockMask),
-                    (byte)((expanded.Blue << BlockOffset) + BlockMask));
+                RGB mn = new RGB(expanded.R << BlockOffset, expanded.G << BlockOffset, expanded.B << BlockOffset);
+                RGB mx = new RGB((expanded.R << BlockOffset) + BlockMask, (expanded.G << BlockOffset) + BlockMask,
+                    (expanded.B << BlockOffset) + BlockMask);
 
-                ARGB closest = new ARGB(0,
-                    c.Red < mn.Red ? mn.Red : (c.Red > mx.Red ? mx.Red : c.Red),
-                    c.Green < mn.Green ? mn.Green : (c.Green > mx.Green ? mx.Green : c.Green),
-                    c.Blue < mn.Blue ? mn.Blue : (c.Blue > mx.Blue ? mx.Blue : c.Blue));
+                RGB closest = new RGB(c.R < mn.R ? mn.R : (c.R > mx.R ? mx.R : c.R),
+                    c.G < mn.G ? mn.G : (c.G > mx.G ? mx.G : c.G),
+                    c.B < mn.B ? mn.B : (c.B > mx.B ? mx.B : c.B));
 
-                int dr = (closest.Red - c.Red);
-                int dg = (closest.Green - c.Green);
-                int db = (closest.Blue - c.Blue);
+                int dr = (closest.R - c.R);
+                int dg = (closest.G - c.G);
+                int db = (closest.B - c.B);
                 int diff = dr * dr + dg * dg + db * db;
 
                 if (diff > bestDiff) continue;
 
-                if (expanded.Red > 0 && !pixelBlocksVisited[coord - ROffset])
+                if (expanded.R > 0 && !pixelBlocksVisited[coord - ROffset])
                 {
                     pixelBlocksVisited[coord - ROffset] = true;
                     st.Enqueue(coord - ROffset);
                 }
 
-                if (expanded.Green > 0 && !pixelBlocksVisited[coord - BOffset])
+                if (expanded.G > 0 && !pixelBlocksVisited[coord - BOffset])
                 {
                     pixelBlocksVisited[coord - GOffset] = true;
                     st.Enqueue(coord - GOffset);
                 }
 
-                if (expanded.Blue > 0 && !pixelBlocksVisited[coord - BOffset])
+                if (expanded.B > 0 && !pixelBlocksVisited[coord - BOffset])
                 {
                     pixelBlocksVisited[coord - BOffset] = true;
                     st.Enqueue(coord - BOffset);
                 }
 
-                if (expanded.Red < BlockMask && !pixelBlocksVisited[coord + ROffset])
+                if (expanded.R < BlockMask && !pixelBlocksVisited[coord + ROffset])
                 {
                     pixelBlocksVisited[coord + ROffset] = true;
                     st.Enqueue(coord + ROffset);
                 }
 
-                if (expanded.Green < BlockMask && !pixelBlocksVisited[coord + GOffset])
+                if (expanded.G < BlockMask && !pixelBlocksVisited[coord + GOffset])
                 {
                     pixelBlocksVisited[coord + GOffset] = true;
                     st.Enqueue(coord + GOffset);
                 }
 
-                if (expanded.Blue < BlockMask && !pixelBlocksVisited[coord + BOffset])
+                if (expanded.B < BlockMask && !pixelBlocksVisited[coord + BOffset])
                 {
                     pixelBlocksVisited[coord + BOffset] = true;
                     st.Enqueue(coord + BOffset);
@@ -1107,10 +1096,10 @@ public class Prog
                 for (int i = 0; i < pxl.Count; i++)
                 {
                     //System.Console.WriteLine (pxl [i].QueueIndex);
-                    var avg = pxl[i].avg; //queue.Data[pxl[i].QueueIndex];
-                    var rd = (int)avg.Red - c.Red;
-                    var gd = (int)avg.Green - c.Green;
-                    var bd = (int)avg.Blue - c.Blue;
+                    var avg = pxl[i].AverageColor; //queue.Data[pxl[i].QueueIndex];
+                    var rd = (int)avg.R - c.R;
+                    var gd = (int)avg.G - c.G;
+                    var bd = (int)avg.B - c.B;
                     diff = rd * rd + gd * gd + bd * bd;
 
                     // Bias towards filling out small empty areas which look bad in the resulting image
@@ -1162,7 +1151,7 @@ public class Prog
                 pixelBlocksVisited[coord] = false;
             }
 #else
-				while (!undoStack.IsEmpty) {
+				while (!undoStack.Empty) {
 					int coord;
 					undoStack.TryPop (out coord);
 					pixelBlocksVisited[coord] = false;
@@ -1180,15 +1169,15 @@ public class Prog
 
             if (bestDiff == int.MaxValue)
             {
-                throw new Exception("No possible positions");
+                throw new System.Exception("No possible positions");
             }
 
             //System.Console.WriteLine ("Removing here");
 
             if (!pixelBlocks[bestBlock].Remove(bestPixel))
             {
-                throw new Exception("Could not remove pixel from " + bestBlock.ToString() + " (was found in " +
-                    bestBlock.ToString() + ")");
+                throw new System.Exception("Could not remove pixel from " + bestBlock.ToString() +
+                    " (was found in " + bestBlock.ToString() + ")");
             }
 
             if (bestAfterFirst > 0)
@@ -1206,7 +1195,7 @@ public class Prog
 
             //queue.Remove(bestPixel);
 
-            bestPixel.inQueue = false;
+            bestPixel.InQueue = false;
 
 #if PROFILE
 				watch4.Stop ();
@@ -1297,48 +1286,51 @@ public class Prog
                         var nnp = np.Neighbors[j];
                         if (!nnp.Empty)
                         {
-                            r += nnp.Color.Red;
-                            g += nnp.Color.Green;
-                            b += nnp.Color.Blue;
+                            r += nnp.Color.R;
+                            g += nnp.Color.G;
+                            b += nnp.Color.B;
                             n++;
                         }
                     }
 
-                    np.nonEmptyNeigh++;
+                    np.NonEmptyNeighborCount++;
 
                     r /= n;
                     g /= n;
                     b /= n;
 
-                    var avg = new ARGB(0, (byte)r, (byte)g, (byte)b);
+                    var avg = new RGB
+                    {
+                        R = (byte)(r),
+                        G = (byte)(g),
+                        B = (byte)(b)
+                    };
 
-                    ARGB newBlock = new ARGB(0,
-                        (byte)((r >> BlockOffset) & BlockMask),
-                        (byte)((g >> BlockOffset) & BlockMask),
-                        (byte)((b >> BlockOffset) & BlockMask));
-                    int blockIndex = newBlock.Red * ROffset + newBlock.Green * GOffset + newBlock.Blue * BOffset;
+                    RGB newBlock = new RGB((r >> BlockOffset) & BlockMask, (g >> BlockOffset) & BlockMask,
+                        (b >> BlockOffset) & BlockMask);
+                    int blockIndex = newBlock.R * ROffset + newBlock.G * GOffset + newBlock.B * BOffset;
 
 #if PROFILE
 						watch1.Stop ();
 						watch5.Start ();
 #endif
-                    if (!np.inQueue)
+                    if (!np.InQueue)
                     {
                         //queue.Add (np);
-                        np.block = blockIndex;
-                        np.inQueue = true;
+                        np.Block = blockIndex;
+                        np.InQueue = true;
                         pixelBlocks[blockIndex].Add(np);
                         //System.Console.WriteLine ("Adding in block " + np.block.ToString () + " " + np.QueueIndex);
                     }
-                    else if (blockIndex != np.block)
+                    else if (blockIndex != np.Block)
                     {
-                        if (!pixelBlocks[np.block].Remove(np))
+                        if (!pixelBlocks[np.Block].Remove(np))
                         {
                             Console.WriteLine("Could not remove even though it should be in the block");
                         }
 
-                        np.inQueue = true;
-                        np.block = blockIndex;
+                        np.InQueue = true;
+                        np.Block = blockIndex;
                         pixelBlocks[blockIndex].Add(np);
                         //System.Console.WriteLine ("Replacing in block " + np.block.ToString () + " " + np.QueueIndex);
                     }
@@ -1346,7 +1338,7 @@ public class Prog
 #if PROFILE
 						watch5.Stop ();
 #endif
-                    np.avg = avg;
+                    np.AverageColor = avg;
                     //queue.Data[np.QueueIndex] = avg;
                 }
             }
@@ -1360,12 +1352,12 @@ public class Prog
     /// <summary>
     /// Holds the big image.
     /// </summary>
-    private static Pixel[] Image;
+    static Pixel[] Image;
 
     /// <summary>
     /// Number of threads, equal to the number of (logical) processors.
     /// </summary>
-    private static int Threads = Environment.ProcessorCount;
+    static int Threads = Environment.ProcessorCount;
 
     public static void Main(string[] args)
     {
@@ -1383,13 +1375,13 @@ public class Prog
         }
 
         // we're just about to start
-        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.BelowNormal;
+        System.Diagnostics.Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.BelowNormal;
         var start = DateTime.Now;
         Console.WriteLine("Running the precalculations and eating up your memory...");
 
         Console.WriteLine("Generating colors");
         // create every color once and randomize their order
-        var colors = new ARGB[Width * Height];
+        var colors = new RGB[Width * Height];
         for (var r = 0; r < NumColors; r++)
         {
             byte R = (byte)(r * 255 / (NumColors - 1));
@@ -1398,19 +1390,20 @@ public class Prog
                 byte G = (byte)(g * 255 / (NumColors - 1));
                 for (var b = 0; b < NumColors; b++)
                 {
-                    colors[r * NumColors * NumColors + g * NumColors + b] = new ARGB(0,
-                        R,
-                        G,
-                        (byte)(b * 255 / (NumColors - 1)));
+                    colors[r * NumColors * NumColors + g * NumColors + b] = new RGB
+                    {
+                        R = R,
+                        G = G,
+                        B = (byte)(b * 255 / (NumColors - 1))
+                    };
                 }
             }
         }
 
 
         Console.WriteLine("Sorting...");
-        Shuffler.Shuffle<ARGB>(colors);
-        //Array.Sort<ARGB>(colors, _sorter);
-        
+        //Array.Sort (colors,Sorter);
+        new Shuffler(null).Shuffle<RGB>(colors);
         Debug.Assert(colors.Length == Width * Height);
 
         Console.WriteLine("Randomizing weights");
@@ -1429,7 +1422,7 @@ public class Prog
             do
             {
                 if (weight != -1) dupCount++;
-                weight = Shuffler.Next();
+                weight = RndGen.Next();
             } while (!weights.Add(weight));
 
             Image[y * Width + x] = new Pixel
@@ -1484,16 +1477,16 @@ public class Prog
         for (int i = 0; i < NumFrames; i++)
         {
             checkpoints.Add((((long)(i + 1) * colors.Length) / NumFrames) - 1);
-            Console.WriteLine("Checkpoint " + checkpoints[checkpoints.Count - 1] + " " + colors.Length);
+            System.Console.WriteLine("Checkpoint " + checkpoints[checkpoints.Count - 1] + " " + colors.Length);
         }
 
-        _algorithm.Init(Width, Height);
+        Algorithm.Init(Width, Height);
 
         byte[] ibytes = null;
         BitmapData bitmapData = null;
         bool runPNGThread = true;
-        AutoResetEvent runPNGEvent = new AutoResetEvent(false);
-        AutoResetEvent PNGDoneEvent = new AutoResetEvent(true);
+        System.Threading.AutoResetEvent runPNGEvent = new AutoResetEvent(false);
+        System.Threading.AutoResetEvent PNGDoneEvent = new AutoResetEvent(true);
         int pngImageIndex = 0;
         Bitmap img = null;
 
@@ -1521,11 +1514,11 @@ public class Prog
             if (i % 4096 == 0)
             {
                 //Algorithm.Queue.Compress();
-                Console.WriteLine("{0:P}, queue size {1}", (double)i / Width / Height, _algorithm.Count);
+                Console.WriteLine("{0:P}, queue size {1}", (double)i / Width / Height, Algorithm.Count);
             }
 
             // run the algorithm
-            _algorithm.Place(colors[i]);
+            Algorithm.Place(colors[i]);
 
             // save a checkpoint if needed
 
@@ -1555,9 +1548,9 @@ public class Prog
                     for (var x = 0; x < Width; x++)
                     {
                         var c = Image[y * Width + x].Color;
-                        ibytes[y * stride + x * 3 + 2] = c.Red;
-                        ibytes[y * stride + x * 3 + 1] = c.Green;
-                        ibytes[y * stride + x * 3 + 0] = c.Blue;
+                        ibytes[y * stride + x * 3 + 2] = c.R;
+                        ibytes[y * stride + x * 3 + 1] = c.G;
+                        ibytes[y * stride + x * 3 + 0] = c.B;
                     }
                 }
 
@@ -1565,7 +1558,7 @@ public class Prog
             }
         }
 
-        _algorithm.Done();
+        Algorithm.Done();
 
         //Debug.Assert(Algorithm.Queue.Count == 0);
 
@@ -1585,13 +1578,13 @@ public class Prog
             for (var x = 0; x < Width; x++)
             {
                 var pix = Image[y * Width + x].Color; //img2.GetPixel(x, y);
-                if (used[pix.Red * 256 * 256 + pix.Green * 256 + pix.Blue])
+                if (used[pix.R * 256 * 256 + pix.G * 256 + pix.B])
                 {
-                    Console.WriteLine("Color {0}/{1}/{2} is added more than once!!!!!!", pix.Red, pix.Green, pix.Blue);
+                    Console.WriteLine("Color {0}/{1}/{2} is added more than once!!!!!!", pix.R, pix.G, pix.B);
                 }
                 else
                 {
-                    used[pix.Red * 256 * 256 + pix.Green * 256 + pix.Blue] = true;
+                    used[pix.R * 256 * 256 + pix.G * 256 + pix.B] = true;
                 }
             }
         }

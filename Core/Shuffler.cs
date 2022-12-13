@@ -58,7 +58,7 @@ public sealed class Shuffler
         */
 
         int len = span.Length;
-        var copy = new T[len];
+        T[] copy = new T[len];
         for (var i = 0; i < len; i++)
         {
             int j = _random.Next(i + 1);

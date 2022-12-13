@@ -1,6 +1,4 @@
-﻿using System.Drawing;
-using System.Drawing.Imaging;
-using CommunityToolkit.HighPerformance;
+﻿using CommunityToolkit.HighPerformance;
 
 namespace AllColors;
 

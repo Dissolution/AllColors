@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Drawing;
 
 namespace AllColors;
 
@@ -59,22 +58,34 @@ public sealed class ColorSpace
 
     public static ARGB[] GetColors(int colorDepth)
     {
-        ValidateColorDepth(colorDepth);
-        int floor = colorDepth - 1;
-        var colors = new ARGB[colorDepth * colorDepth * colorDepth];
-        int colorsIndex = 0;
+        // Color Depth is the number of each different R, G, and B values we will use
+        // Example:
+        // 16 => 16*16*16 = 4096 = 64x64
+        // 32 => 32*32*32 = ? = 256*128
+        
+        // Depth each of R, G, and B
+        var count = colorDepth * colorDepth * colorDepth;
+
+        ARGB[] colors = new ARGB[count];
+        int c = 0;
+
+        // We have a number of colors to generate, which gives us a divisor
+        int divisor = colorDepth - 1;
+
+        // For each channel
         for (var r = 0; r < colorDepth; r++)
         for (var g = 0; g < colorDepth; g++)
         for (var b = 0; b < colorDepth; b++)
         {
-            colors[colorsIndex++] = new ARGB
-            (
-                red: ((r * 255) / floor),
-                green: ((g * 255) / floor),
-                blue: ((b * 255) / floor)
-            );
+            var color = new ARGB(
+                r * 255 / divisor,
+                g * 255 / divisor,
+                b * 255 / divisor);
+            colors[c++] = color;
         }
-        Debug.Assert(colorsIndex == colors.Length);
+
+        Debug.Assert(c == count);
+
         return colors;
     }
 

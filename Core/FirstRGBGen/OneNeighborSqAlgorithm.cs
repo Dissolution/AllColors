@@ -49,36 +49,33 @@ public class OneNeighborSqAlgorithm : AlgorithmBase
     protected override Pixel PlaceImpl(ARGB color)
     {
         // What pixels do we have available
-        Memory<Pixel?> available = new Memory<Pixel?>(
-            array: _queue.AvailablePixels, 
-            start: 0, 
-            length: _queue.AvailablePixelLength);
+        Pixel?[] available = _queue.Pixels;
+        int availEnd = _queue.EndLength;
 
         const int MaxSlice = 256;
 
         // Find the best fit
         Pixel bestPixel;
 
-        if (available.Length <= MaxSlice)
+        if (availEnd <= MaxSlice)
         {
-            var bestDiff = FindLowestDifference(available.Span, color);
+            var bestDiff = FindLowestDifference(available.AsSpan(0, availEnd), color);
             Debug.Assert(bestDiff.Pixel is not null);
             bestPixel = bestDiff.Pixel;
         }
         else
         {
             // find the best pixel with parallel processing
-            var rangeSize = Math.Max(MaxSlice, available.Length / Environment.ProcessorCount);
+            var rangeSize = Math.Max(MaxSlice, availEnd / Environment.ProcessorCount);
             var bestDiff = Partitioner.Create(
                     fromInclusive: 0,
-                    toExclusive: available.Length,
+                    toExclusive: availEnd,
                     rangeSize: rangeSize)
                 .AsParallel()
                 .Min(rangeTuple =>
                 {
                     Range range = new(start: rangeTuple.Item1, end: rangeTuple.Item2);
-                    var slice = available.Span[range];
-                    var bestDiff = FindLowestDifference(slice, color);
+                    var bestDiff = FindLowestDifference(available.AsSpan(range), color);
                     return bestDiff;
                 });
             Debug.Assert(bestDiff.Pixel is not null);
